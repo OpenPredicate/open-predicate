@@ -7,8 +7,24 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ## [Unreleased]
 
-No change to the grammar or to the semantics of evaluation. The only edit to
-`query-language-schema.json` is its root `description`, and its `$id` still names `v0.4.0`.
+## [0.5.0] — 2026-09-13
+
+**A tooling release.** No change to the grammar or to the semantics of evaluation:
+`query-language-schema.json` is byte-identical to 0.4.0 apart from its root `description`, and its
+`$id` still names `v0.4.0`, because the `$id` version tracks the grammar and the grammar did not
+move. Consumers pinning that `$id` have nothing to do.
+
+What did move is the generator, which is now the thing an API provider uses when implementing
+search: point it at the resource schema, state the slice of the language you can actually serve,
+and get back a filter schema that permits exactly that slice plus a capability document that
+describes it honestly. It also travels with the package for the first time, as a `bin` named
+`jql-generate`, rather than being a file inside a repository nobody installs.
+
+[SPEC.md](./SPEC.md) gains two clarifications in service of that, both about what an
+implementation may *claim* rather than about what a filter means:
+[§2.1](./SPEC.md#21-profiles) says out loud that accepting part of a profile is permitted and
+advertising it is not, and [§2.2](./SPEC.md#22-capability-discovery) documents the capability
+document's top-level members. No filter valid under 0.4.0 becomes invalid.
 
 ### Added
 
@@ -418,6 +434,7 @@ Initial research draft: `$and`, `$or`, `$not` over eight leaf condition types
 (`$eq`, `$ne`, `$in`, `$nin`, `$like`, `$nlike`, `$gt`/`$gte`/`$lt`/`$lte`/`$between`, `$isnull`),
 laid out as an OpenAPI `components.schemas` fragment.
 
+[0.5.0]: https://github.com/christosgkoros/json-query-language/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/christosgkoros/json-query-language/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/christosgkoros/json-query-language/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/christosgkoros/json-query-language/compare/v0.2.0...v0.3.0

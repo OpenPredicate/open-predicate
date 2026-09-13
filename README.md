@@ -25,7 +25,7 @@ One schema, two integration points, because JSON Schema is what both already spe
 - **OpenAPI documents** — [`examples/`](./examples) — working 3.1 (`POST /…/search`) and 3.2 (`QUERY`) integrations
 - **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema, plus the slice of the language you can serve, into a per-field filter schema
 - **Compared with GraphQL** — [`COMPARISON.md`](./COMPARISON.md) — what this overlaps with, what it does not, and what a JSON-Schema-native alternative would still need
-- **Version** — `0.4.0`, and the schema's `$id` names `v0.4.0`. This release is **breaking**: it replaces two array mechanisms with one quantifier family and adds `$unknownAs`. See [`CHANGELOG.md`](./CHANGELOG.md) for the migration, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for why.
+- **Version** — `0.5.0`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and 0.5.0 changed only the tooling and what it may claim. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
 
 > **Work in progress — including the name.** This is a design published for review, not a distribution you can depend on yet. The artifact's own name is a working title, and every identifier that follows from it — the package names, the schema `$id`, the URLs in the integration examples — is a placeholder. Several do not currently resolve, and getting them right is deliberately not a goal until the name is settled. The grammar and its semantics are the part worth reviewing. See [Status](#status) before you try to install or `$ref` anything.
 
