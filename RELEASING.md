@@ -75,7 +75,7 @@ bothers you.
 taken by something unrelated to the project. It carries no schema and no code, is not versioned
 alongside releases, and the release pipeline never touches it. Recreate and publish it like this:
 
-```bash
+````bash
 d=$(mktemp -d) && cd "$d"
 cat > package.json <<'JSON'
 {
@@ -83,19 +83,42 @@ cat > package.json <<'JSON'
   "version": "0.0.1",
   "description": "Name reserved. The package is @open-predicate/open-predicate — install that instead.",
   "license": "MIT",
+  "author": "Christos Gkoros",
   "repository": { "type": "git", "url": "git+https://github.com/OpenPredicate/open-predicate.git" },
   "homepage": "https://github.com/OpenPredicate/open-predicate#readme",
+  "bugs": { "url": "https://github.com/OpenPredicate/open-predicate/issues" },
+  "keywords": ["open-predicate", "openpredicate"],
+  "publishConfig": { "registry": "https://registry.npmjs.org" },
   "files": ["README.md"]
 }
 JSON
-printf '# open-predicate\n\n**Reserved.** Install `@open-predicate/open-predicate` instead.\n' > README.md
+cat > README.md <<'MD'
+# open-predicate
+
+**This name is reserved. Nothing is published here.**
+
+OpenPredicate is distributed as a scoped package:
+
+```bash
+npm install @open-predicate/open-predicate
+```
+
+This placeholder exists only so the unscoped name cannot be taken by something
+unrelated to the project. It carries no schema and no code, and it is not
+versioned alongside releases.
+
+MIT.
+MD
 
 npm publish
 npm deprecate open-predicate "Moved to @open-predicate/open-predicate — install that instead."
-```
+````
 
 The `npm deprecate` is the part that matters: it makes `npm install open-predicate` print the
 redirect rather than silently installing an empty package.
+
+Both commands need two-factor auth, so they cannot be run unattended — `npm publish` reaches
+`EOTP` and prints its web-auth URL only to a TTY.
 
 An unscoped package is owned by the publishing user rather than by an organisation. Transfer it
 with `npm owner add`, or from npmjs.com → the package → *Settings* → **Transfer**, so it does not
