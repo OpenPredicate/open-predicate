@@ -32,17 +32,23 @@ npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and
 **OIDC cannot perform a package's first publish.** npm requires the package to exist before a trusted publisher can be attached to it, so the very first version has to go up under a personal login. That bootstrap is a one-off:
 
 ```bash
-npm login                                    # the account must be a member of the open-predicate org
-npm publish --access public                  # claims @open-predicate/open-predicate
+npm login                    # the account must be a member of the open-predicate org
+npm publish --access public  # claims @open-predicate/open-predicate
 
-npm trust github \
-  --allow-publish \
-  --repository OpenPredicate/open-predicate \
-  --workflow release.yml
-npm trust list                               # confirm it stuck
+npm trust github @open-predicate/open-predicate \
+  --file release.yml \
+  --repository OpenPredicate/open-predicate
+
+npm trust list @open-predicate/open-predicate   # confirm it stuck
 ```
 
 `npm trust github` is the CLI equivalent of npmjs.com → the package → *Settings* → **Trusted Publisher** → *GitHub Actions*. Either way the trust is pinned to the repository **and the workflow filename** — renaming `release.yml` breaks publishing until the trusted publisher is updated to match.
+
+Three things about that command, all of which cost a failed attempt to learn:
+
+- **The package is a positional argument, and `--file` is required.** `--file` takes the workflow's *filename* only, not a path under `.github/workflows/`, and it must end in `.yml` or `.yaml`.
+- **npm's published documentation is ahead of the shipped CLI.** [docs.npmjs.com](https://docs.npmjs.com/cli/v11/commands/npm-trust/) describes `--allow-publish` and `--allow-stage-publish`; npm 11.12.1 rejects both as unknown flags. Publish is permitted by default, so nothing is lost.
+- **It requires account-level 2FA and prompts for an OTP**, so it cannot be run unattended. Add `--dry-run` to check the resolved package, file and repository before committing to it.
 
 Afterwards, set the package's publishing access to **Require two-factor authentication and disallow tokens**. That closes off token auth without affecting OIDC, which is the point of moving to it.
 
@@ -84,6 +90,7 @@ These cost time to work out.
 
 - **The trust is per-package, not per-org.** A second package under `@open-predicate` needs its own `npm trust github`, and its own bootstrap publish.
 - **`npm trust` needs account-level 2FA** and will not accept a granular token with *Bypass 2FA*, or legacy basic auth.
+- **`npm view` can 404 on a package that is already published.** It reads a CDN-cached packument, which lags the publish by minutes. `npm dist-tag ls <pkg>` and `npm access get status <pkg>` hit the registry API directly and are what to trust when checking whether a publish landed.
 - **A rehearsal cannot prove npmjs auth works.** `npm publish --dry-run` does not authenticate, and the OIDC credential is only minted by a real publish — so unlike the old token-based job, there is no `npm whoami` that proves the credential ahead of time. The GitHub Packages job still runs one, because that half is still token-authenticated.
 - **Trusted publishing needs npm >= 11.5.1**, which is why the `npmjs` job installs `npm@latest` rather than trusting the runner image.
 - **`environment: release` is decoration until you configure it.** Referencing an environment that does not exist does not block the run; GitHub creates it with no protection rules. Add yourself as a required reviewer under *Settings → Environments → release* to make it a real gate. If you also name that environment in the trusted publisher config, the two must agree or publishing fails.

@@ -371,7 +371,7 @@ Opt a single property out, or override its operators, from the resource schema i
 
 `--include`, `--exclude`, `--max-depth` and `--pointer` do the rest. Run `--help` for the full list.
 
-The tool ships inside the package as a `bin` named `open-predicate-generate`, so from a registry it is `npx @open-predicate/open-predicate` rather than a path — the package name, not the bin name, because the package is scoped and `npx` resolves packages. See [Status](#status) for whether that is reachable yet; from a clone or `npm install github:OpenPredicate/open-predicate` it always is.
+The tool ships inside the package as a `bin` named `open-predicate-generate`, so from a registry it is `npx @open-predicate/open-predicate` rather than a path — the package name, not the bin name, because the package is scoped and `npx` resolves packages. From a clone it stays `node tools/generate-filter-schema.mjs`.
 
 ## Exposing search to an agent
 
@@ -456,11 +456,12 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 | What the README says | Reality today |
 | --- | --- |
 | `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | The permanent namespace, but not served yet. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
-| The package names `@open-predicate/open-predicate` and `@openpredicate/open-predicate` | The release pipeline publishes both on a GitHub Release — npmjs.com by OIDC trusted publishing, GitHub Packages by `GITHUB_TOKEN`. npm cannot mint the *first* version over OIDC, though, so the npmjs name is claimed by a one-time manual bootstrap; until that has run, neither registry has a copy. [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap) has the procedure. |
+| [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate) on npmjs.com | **Published**, from `v0.6.0` on. Public, no credential needed to install. |
+| `@openpredicate/open-predicate` on GitHub Packages | Not published yet — the first copy goes up with the next GitHub Release. Installing from it needs an `.npmrc` and a token even though it is public, so npmjs.com is the easier path. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
-| `npx @open-predicate/open-predicate` | Not reachable from a registry until the bootstrap in the row above has run. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install either way. |
+| `npx @open-predicate/open-predicate` | Works. The package name rather than the bin name, because `npx` resolves packages and this one is scoped; the installed `bin` is still `open-predicate-generate`. |
 
-Serving the schema at its `$id` and publishing the package are the remaining work. Until then the only fetchable copy of the schema is raw GitHub:
+Serving the schema at its `$id` is the remaining work. Until it is served, the schema is fetchable from the package — or from raw GitHub:
 
 ```bash
 curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
