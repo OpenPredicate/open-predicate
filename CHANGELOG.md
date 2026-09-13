@@ -43,10 +43,16 @@ minor release may break compatibility, in which case the break is spelled out be
   breaks publishing until the trusted publisher is updated to match.
 
   **npm cannot mint a package's first version over OIDC**, because a trusted publisher can only be
-  attached to a package that already exists. Claiming `@open-predicate/open-predicate` is therefore
-  a one-time manual publish, documented in
-  [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap). Until it has run,
-  neither registry has a copy and the README's *Status* table says so.
+  attached to a package that already exists. Claiming `@open-predicate/open-predicate` was therefore
+  a one-time manual publish, documented along with everything it cost to get right in
+  [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap) — including that
+  *configuring* the trusted publisher needs npm >= 12, which fails with an unexplained `E400` on
+  npm 11 because the older client omits the `permissions` field the registry now requires.
+
+- **`@open-predicate/open-predicate` is on npmjs.com**, public and installable, from `0.6.0` on. The
+  package is the schema: `require()` it, or `import` it with `{ type: 'json' }`. The trusted
+  publisher is configured, so every release from here is published by the workflow rather than by
+  hand. GitHub Packages gets its first copy with the next release.
 
 ## [0.6.0] — 2026-09-13
 
@@ -147,10 +153,11 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
   `--max-filter-depth` is given and `maxDepth` is not, the enforced bound is published.
 - **The generator is part of the package.** `tools/` was not in `package.json` `files` and there
   was no `bin` entry, so the tool the README points readers at could not travel with the package
-  at all. It is now a `bin` named `open-predicate-generate`, with `open-predicate/generate` exporting
-  `generateFilterSchema` for programmatic use. This repository still publishes no artifacts
-  ([RELEASING.md](./RELEASING.md)), so the command is reachable from a clone or a git install and
-  not from npmjs; what changed is that it is ready to be, and `npm pack` now contains it.
+  at all. It is now a `bin` named `open-predicate-generate`, with
+  `@open-predicate/open-predicate/generate` exporting `generateFilterSchema` for programmatic use.
+  At the time of this release the repository still published no artifacts, so the command was
+  reachable from a clone or a git install and not from npmjs; what changed here is that it was
+  ready to be, and `npm pack` contained it. Publishing arrived in 0.6.0.
 - **[SPEC.md §2.2](./SPEC.md#22-capability-discovery) documents the capability document's
   top-level members** — `queryLanguage`, `profiles`, `fields`, `limits` and `filterSchema` — in a
   table beside the existing per-field one. `limits` appeared in the example and in no table, and
