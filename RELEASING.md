@@ -35,18 +35,16 @@ npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and
 npm login                    # the account must be a member of the open-predicate org
 npm publish --access public  # claims @open-predicate/open-predicate
 
-npm trust github @open-predicate/open-predicate \
-  --file release.yml \
-  --repository OpenPredicate/open-predicate
-
-npm trust list @open-predicate/open-predicate   # confirm it stuck
+npm trust github --file release.yml  # run from the repo root
+npm trust list                       # confirm it stuck
 ```
 
 `npm trust github` is the CLI equivalent of npmjs.com → the package → *Settings* → **Trusted Publisher** → *GitHub Actions*. Either way the trust is pinned to the repository **and the workflow filename** — renaming `release.yml` breaks publishing until the trusted publisher is updated to match.
 
-Three things about that command, all of which cost a failed attempt to learn:
+Four things about that command, all of which cost a failed attempt to learn:
 
-- **The package is a positional argument, and `--file` is required.** `--file` takes the workflow's *filename* only, not a path under `.github/workflows/`, and it must end in `.yml` or `.yaml`.
+- **`--file` is the only flag you need.** Run from the repo root, `npm trust` takes both the package name and the `owner/repo` from `package.json` and says so in its output (`(from package.json)`). Passing `--repository` by hand is how you get a typo into a one-shot, irreversible-feeling operation — it warns on a mismatch and then fails the POST with a bare `E400`.
+- **`--file` takes the workflow's *filename* only**, not a path under `.github/workflows/`, and it must end in `.yml` or `.yaml`.
 - **npm's published documentation is ahead of the shipped CLI.** [docs.npmjs.com](https://docs.npmjs.com/cli/v11/commands/npm-trust/) describes `--allow-publish` and `--allow-stage-publish`; npm 11.12.1 rejects both as unknown flags. Publish is permitted by default, so nothing is lost.
 - **It requires account-level 2FA and prompts for an OTP**, so it cannot be run unattended. Add `--dry-run` to check the resolved package, file and repository before committing to it.
 
