@@ -20,21 +20,45 @@
  * than restated here, so the prose an agent reads stays in one place.
  *
  * Usage:
- *   node tools/generate-filter-schema.mjs <resource-schema.json> [options]
+ *   jql-generate <resource-schema.json> [options]
+ *   jql-generate --config <jql.config.json>
  *
+ * `jql-generate` is the installed name; from a clone it is
+ * `node tools/generate-filter-schema.mjs`, with the same arguments.
+ *
+ * What the schema describes:
  *   --id <uri>              $id for the generated schema (recommended)
  *   --title <text>          title for the generated schema
- *   --profiles <list>       comma-separated; default core,strings,ranges,collections
  *   --pointer <json-ptr>    subschema of the input file to treat as the resource
  *   --max-depth <n>         how far to descend into nested objects (default 3)
+ *   --include <list>        comma-separated paths; omit for "everything found"
+ *   --exclude <list>        comma-separated paths or path prefixes ending in *
+ *
+ * What the endpoint can actually serve — the filter schema is a narrowing, so
+ * anything declined here is rejected by validation instead of at runtime:
+ *   --profiles <list>       comma-separated; default core,strings,ranges,collections
+ *   --operators <list>      exactly these operators, intersected with --profiles
+ *   --drop-operators <list> everything --profiles implies, minus these
+ *   --no-shorthand          drop the bare-scalar form; every constraint takes
+ *                           the object form
+ *   --max-filter-depth <n>  the deepest filter the schema accepts. 1 is a flat
+ *                           filter with no logical operators at all, 2 permits
+ *                           one $and/$or/$nor/$not level. Unbounded by default
+ *   --limits <json|@file>   maxDepth, maxClauses and maxSetLength for the
+ *                           capability document, merged over the defaults
+ *
+ * Output:
  *   --descriptions <mode>   all | brief | none. Default brief: the operators
  *                           whose semantics surprise people keep their prose,
  *                           the self-evident ones keep only a title.
- *   --include <list>        comma-separated paths; omit for "everything found"
- *   --exclude <list>        comma-separated paths or path prefixes ending in *
  *   --out <file>            write the schema here instead of stdout
  *   --capabilities <file>   also write a SPEC.md §2.2 capability document
  *   --grammar <file>        path to query-language-schema.json
+ *   --config <file>         read these options from JSON, using the camelCase
+ *                           names of the JS API plus "resource", "out" and
+ *                           "capabilities". Relative paths in it resolve
+ *                           against its own directory, and an explicit flag
+ *                           always beats it. This is the file to check in.
  *   --quiet                 suppress warnings on stderr
  *
  * A property may also opt out or override in the resource schema itself:
@@ -45,12 +69,14 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_GRAMMAR = join(here, "..", "query-language-schema.json");
 const DEFAULT_PROFILES = ["core", "strings", "ranges", "collections"];
+/** SPEC §7's RECOMMENDED defaults, published through the capability document (§2.2). */
+const DEFAULT_LIMITS = { maxDepth: 10, maxClauses: 100, maxSetLength: 1000 };
 
 /** Formats whose values are opaque tokens: substring matching on them is noise. */
 const OPAQUE_FORMATS = new Set(["uuid", "uri", "iri", "email", "ipv4", "ipv6", "duration"]);
@@ -473,6 +499,9 @@ function dependencyRules(ctx, props) {
 function emitConstraint(ctx, field, prefix) {
   const ops = operatorsFor(field, ctx);
   if (ops.length === 0) return null;
+  // A bounded $not points at a copy of this constraint object with $not removed,
+  // so it needs at least one other operator to negate.
+  if (ctx.opts.maxFilterDepth !== undefined && ops.length === 1 && ops[0] === "$not") return null;
 
   const name = defName(ctx, `${prefix}C_`, field.nameHint ?? field.path);
   const props = {};
@@ -491,6 +520,16 @@ function emitConstraint(ctx, field, prefix) {
       ctx.defs[field.orderedDef] = looseValue(field.schema, field.info);
     }
     return { $ref: `#/$defs/${field.orderedDef}` };
+  };
+  // Unbounded, $not negates this very constraint object, so {"$not": {"$not": …}}
+  // nests forever. Where a depth is set that has to stop somewhere, and one
+  // level is the natural place: under Kleene logic ¬¬X ≡ X even for UNKNOWN, so
+  // a negated negation says nothing the plain constraint does not.
+  let negName = null;
+  const notRef = () => {
+    if (ctx.opts.maxFilterDepth === undefined) return `#/$defs/${name}`;
+    negName ??= defName(ctx, `${prefix}N_`, hint);
+    return `#/$defs/${negName}`;
   };
   const itemRef = () => {
     if (!field.itemDef) {
@@ -530,7 +569,7 @@ function emitConstraint(ctx, field, prefix) {
         break;
       }
       case "$not":
-        props[op] = annotate(ctx, op, { $ref: `#/$defs/${name}` });
+        props[op] = annotate(ctx, op, { $ref: notRef() });
         break;
       case "$flags":
         props[op] = annotate(ctx, op, { type: "string", pattern: "^[ims]{0,3}$" });
@@ -543,6 +582,21 @@ function emitConstraint(ctx, field, prefix) {
         props[op] = annotate(ctx, op, shape);
       }
     }
+  }
+
+  if (negName) {
+    // The same constraint object minus $not, so one negation is expressible and
+    // two are not. Reachable only through $not, whose own description explains
+    // negation, so the field's prose is not repeated into it.
+    const { $not: dropped, ...rest } = props;
+    ctx.defs[negName] = {
+      title: `${field.path}, negated`,
+      type: "object",
+      minProperties: 1,
+      ...dependencyRules(ctx, rest),
+      properties: rest,
+      additionalProperties: false,
+    };
   }
 
   const constraint = {
@@ -560,7 +614,10 @@ function emitConstraint(ctx, field, prefix) {
   field.operators = ops;
 
   // Scalars keep the shorthand: {"status": "open"} is {"status": {"$eq": "open"}}.
-  if (field.kind === "scalar") {
+  // --no-shorthand gives them the object-only form arrays and objects already
+  // have, which costs a provider nothing to accept and buys a validator that
+  // reports where a constraint went wrong instead of an anyOf that failed.
+  if (field.kind === "scalar" && ctx.opts.shorthand) {
     return { anyOf: [valueRef(), { $ref: `#/$defs/${name}` }] };
   }
   return { $ref: `#/$defs/${name}` };
@@ -608,7 +665,6 @@ function emitQuantifierTarget(ctx, field, prefix) {
  */
 function emitFilter(ctx, node, name, state) {
   if (name !== "__root__") ctx.reserved.add(name);
-  const selfRef = state.selfRef ?? "#";
   const fields = collectFields(node, ctx, state);
   if (fields.length === 0) {
     ctx.warn(`no queryable fields found${name === "__root__" ? "" : ` for ${name}`}.`);
@@ -616,31 +672,63 @@ function emitFilter(ctx, node, name, state) {
   }
 
   const prefix = name === "__root__" ? "" : `${sanitize(name)}_`;
-  const properties = {};
-  for (const op of ["$and", "$or", "$nor"]) {
-    if (!ctx.enabled.has(op)) continue;
-    properties[op] = annotate(ctx, op, { type: "array", minItems: 1, items: { $ref: selfRef } }, "filter");
-  }
-  if (ctx.enabled.has("$not")) properties.$not = annotate(ctx, "$not", { $ref: selfRef }, "filter");
-
+  const fieldProps = {};
   const emitted = [];
   for (const field of fields) {
     const ref = emitConstraint(ctx, field, prefix);
     if (!ref) continue;
-    properties[field.path] = ref;
+    fieldProps[field.path] = ref;
     emitted.push(field);
   }
+  if (emitted.length === 0) {
+    // Logical operators over no field predicates is an infinite regress with no
+    // base case: every instance of it is unsatisfiable.
+    ctx.warn(`no constraints could be emitted${name === "__root__" ? "" : ` for ${name}`}.`);
+    return null;
+  }
 
-  const filter = {
-    type: "object",
-    minProperties: 1,
-    properties,
-    additionalProperties: false,
+  // Unbounded nesting is the single self-referential object it has always been.
+  // A bounded one has to be a chain, because JSON Schema cannot count how deep
+  // an instance already is: level i offers the logical operators over level
+  // i+1, and the last level does not offer them at all. Every level shares the
+  // field properties, so the cost is n copies of a map of $refs, not n copies
+  // of the operand schemas.
+  const depth = ctx.opts.maxFilterDepth ?? 1;
+  const hint = name === "__root__" ? "Filter" : name;
+  const deeper = [];
+  for (let i = 2; i <= depth; i++) deeper.push(defName(ctx, "", `${hint}_depth_${i}`));
+
+  const level = (i) => {
+    const properties = {};
+    const next =
+      ctx.opts.maxFilterDepth === undefined ? (state.selfRef ?? "#")
+      : i < depth ? `#/$defs/${deeper[i - 1]}`
+      : null;
+    if (next) {
+      for (const op of ["$and", "$or", "$nor"]) {
+        if (!ctx.enabled.has(op)) continue;
+        properties[op] = annotate(ctx, op, { type: "array", minItems: 1, items: { $ref: next } }, "filter");
+      }
+      if (ctx.enabled.has("$not")) properties.$not = annotate(ctx, "$not", { $ref: next }, "filter");
+    }
+    return {
+      type: "object",
+      minProperties: 1,
+      properties: { ...properties, ...fieldProps },
+      additionalProperties: false,
+    };
   };
+
+  for (let i = 2; i <= depth; i++) ctx.defs[deeper[i - 2]] = level(i);
+  const filter = level(1);
 
   if (name === "__root__") {
     ctx.rootFilter = filter;
     ctx.rootFields = emitted;
+    // The deeper levels repeat the root's field properties, so --include has to
+    // reach them too — otherwise a path pruned from the root walks back in
+    // under an $and.
+    ctx.rootLevels = deeper.map((level) => ctx.defs[level]);
   } else {
     ctx.defs[name] = filter;
   }
@@ -651,9 +739,12 @@ function emitFilter(ctx, node, name, state) {
 // Public API
 // ---------------------------------------------------------------------------
 
+const SHORTHAND_RULE =
+  "A bare scalar is equality: {\"status\": \"open\"} is {\"status\": {\"$eq\": \"open\"}}.";
+
 const SILENT_RULES = [
   "Sibling members are combined with implicit AND, at every level.",
-  "A bare scalar is equality: {\"status\": \"open\"} is {\"status\": {\"$eq\": \"open\"}}.",
+  SHORTHAND_RULE,
   "Comparisons use three-valued logic: $ne and $not do NOT match records where the field is null or absent. To include those records, add \"$unknownAs\": true to the same constraint.",
   "$in compares the whole field value; it is not array membership. To say something about the elements of an array, quantify: {\"tags\": {\"$some\": {\"$in\": [\"a\"]}}}.",
 ];
@@ -671,11 +762,12 @@ export function generateFilterSchema(resource, options = {}) {
     title,
     description: [
       `A filter over ${ctx.resource.title ?? "this resource"}, in the JSON Query Language.`,
-      ...SILENT_RULES,
+      ...SILENT_RULES.filter((rule) => ctx.opts.shorthand || rule !== SHORTHAND_RULE),
     ].join(" "),
     $comment:
       `Generated by tools/generate-filter-schema.mjs from ${ctx.resource.$id ?? options.source ?? "a resource schema"} ` +
-      `against ${ctx.grammar.$id}. Profiles: ${ctx.opts.profiles.join(", ")}. Do not edit by hand.`,
+      `against ${ctx.grammar.$id}. Profiles: ${ctx.opts.profiles.join(", ")}` +
+      `${ctx.opts.excluded.length ? ` (minus ${ctx.opts.excluded.join(", ")})` : ""}. Do not edit by hand.`,
     ...ctx.rootFilter,
     $defs: ctx.defs,
   };
@@ -692,8 +784,10 @@ export function generateCapabilities(resource, options = {}) {
  */
 function pruneToIncluded(ctx) {
   const keep = new Set(ctx.opts.include);
-  for (const path of Object.keys(ctx.rootFilter.properties)) {
-    if (!path.startsWith("$") && !keep.has(path)) delete ctx.rootFilter.properties[path];
+  for (const filter of [ctx.rootFilter, ...ctx.rootLevels]) {
+    for (const path of Object.keys(filter.properties)) {
+      if (!path.startsWith("$") && !keep.has(path)) delete filter.properties[path];
+    }
   }
   for (const path of ctx.opts.include) {
     if (!(path in ctx.rootFilter.properties)) ctx.warn(`--include names "${path}", which was not found.`);
@@ -722,10 +816,109 @@ function buildCapabilities(ctx, options) {
   return {
     queryLanguage: ctx.grammar.$id,
     ...(options.id ? { filterSchema: options.id } : {}),
-    profiles: ctx.opts.profiles,
+    profiles: ctx.opts.complete,
     fields,
-    limits: options.limits ?? { maxDepth: 10, maxClauses: 100, maxSetLength: 1000 },
+    limits: ctx.opts.limits,
   };
+}
+
+/**
+ * The operator set the generated schema will offer: profiles first, because
+ * they are the coarse unit a server advertises, then the operator-level refinement
+ * for the cases a profile boundary does not fit — a backend with LIKE but no
+ * POSITION supports $like and not $contains, and a key-value store cannot
+ * implement $exists at all.
+ *
+ * Narrowing the set is always safe: the emitted schema accepts fewer filters
+ * than the grammar, never more. What it costs is the profile *claim*, which is
+ * why the demotion is warned about here and reflected in the capability
+ * document rather than silently kept (SPEC §2.1).
+ */
+function selectOperators(grammar, profiles, options, warn) {
+  const byProfile = grammar["x-profiles"];
+  const defined = new Set(Object.values(byProfile).flat());
+  const profileOf = (op) => Object.keys(byProfile).find((p) => byProfile[p].includes(op));
+
+  const check = (names, flag) => {
+    for (const op of names) {
+      if (!defined.has(op)) {
+        throw new Error(`unknown operator "${op}" in ${flag}; the grammar defines ${[...defined].join(", ")}`);
+      }
+    }
+  };
+  check(options.operators ?? [], "--operators");
+  check(options.dropOperators ?? [], "--drop-operators");
+
+  let enabled = new Set(profiles.flatMap((p) => byProfile[p]));
+
+  if (options.operators) {
+    for (const op of options.operators) {
+      if (!enabled.has(op)) {
+        warn(`--operators names "${op}", which the "${profileOf(op)}" profile supplies; add it to --profiles for the operator to take effect.`);
+      }
+    }
+    enabled = new Set(options.operators.filter((op) => enabled.has(op)));
+  }
+  for (const op of options.dropOperators ?? []) enabled.delete(op);
+
+  // A kept operator whose dependency was dropped would be emitted with a
+  // `dependentRequired` rule naming a member `additionalProperties: false`
+  // forbids — present in the schema and impossible to use. The rule is read off
+  // the grammar (today: $flags needs $regex) so a dependency added later is
+  // handled by construction rather than by a second list here.
+  for (const [trigger, requires] of Object.entries(grammar.$defs.ConstraintObject.dependentRequired ?? {})) {
+    if (!enabled.has(trigger)) continue;
+    const missing = requires.filter((op) => !enabled.has(op));
+    if (missing.length === 0) continue;
+    enabled.delete(trigger);
+    warn(`"${trigger}" requires ${missing.join(", ")} beside it, so it is excluded too.`);
+  }
+
+  if (enabled.size === 0) throw new Error("the selection leaves no operators enabled");
+
+  // Which profiles survive as *claims*. SPEC §2.1: a profile other than core is
+  // implemented in full or not at all, so a profile missing an operator is no
+  // longer on offer — the per-field `operators` lists carry what is.
+  const requested = new Set(profiles.flatMap((p) => byProfile[p]));
+  const excluded = [...requested].filter((op) => !enabled.has(op));
+  const complete = profiles.filter((p) => byProfile[p].every((op) => enabled.has(op)));
+  for (const p of profiles) {
+    if (complete.includes(p)) continue;
+    const missing = byProfile[p].filter((op) => !enabled.has(op));
+    warn(
+      p === "core"
+        ? `the "core" profile is incomplete (${missing.join(", ")} excluded). SPEC §2.1 requires core in full, so this endpoint is not a conforming implementation; the capability document will not claim core.`
+        : `profile "${p}" is not offered in full (${missing.join(", ")} excluded), so it is omitted from the capability document's profiles (SPEC §2.1).`,
+    );
+  }
+
+  return { enabled, complete, excluded };
+}
+
+/**
+ * SPEC §7's limits are a claim published through the capability document, not
+ * something the schema enforces — except `maxDepth`, which `--max-filter-depth`
+ * does enforce. Where both are given they should agree, so a disagreement is
+ * worth saying out loud.
+ */
+function resolveLimits(options, warn) {
+  const given = options.limits ?? {};
+  for (const [key, value] of Object.entries(given)) {
+    if (!(key in DEFAULT_LIMITS)) {
+      throw new Error(`unknown limit "${key}"; --limits takes ${Object.keys(DEFAULT_LIMITS).join(", ")}`);
+    }
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(`limit "${key}" must be a positive integer, got ${JSON.stringify(value)}`);
+    }
+  }
+  const limits = { ...DEFAULT_LIMITS, ...given };
+  if (options.maxFilterDepth !== undefined) {
+    if (given.maxDepth === undefined) limits.maxDepth = options.maxFilterDepth;
+    else if (given.maxDepth !== options.maxFilterDepth) {
+      warn(`--limits maxDepth is ${given.maxDepth} but the schema refuses logical nesting past ${options.maxFilterDepth}; the published limit is the looser claim.`);
+    }
+  }
+  return limits;
 }
 
 function prepare(resource, options) {
@@ -743,7 +936,15 @@ function prepare(resource, options) {
   }
   if (!profiles.includes("core")) throw new Error(`the "core" profile is mandatory (SPEC §2.1)`);
 
-  const enabled = new Set(profiles.flatMap((p) => grammar["x-profiles"][p]));
+  if (options.maxFilterDepth !== undefined
+      && (!Number.isInteger(options.maxFilterDepth) || options.maxFilterDepth < 1)) {
+    throw new Error(`--max-filter-depth must be an integer of 1 or more, got ${JSON.stringify(options.maxFilterDepth)}`);
+  }
+
+  const warnings = [];
+  const warn = (m) => warnings.push(m);
+  const { enabled, complete, excluded } = selectOperators(grammar, profiles, options, warn);
+  const limits = resolveLimits(options, warn);
 
   const root = resource;
   const deref = makeDeref(root);
@@ -751,7 +952,6 @@ function prepare(resource, options) {
   if (entry === undefined) throw new Error(`--pointer "${options.pointer}" does not resolve`);
   const resolved = flatten(entry, deref, new Set());
 
-  const warnings = [];
   return {
     grammar,
     deref,
@@ -759,11 +959,16 @@ function prepare(resource, options) {
     defs: {},
     reserved: new Set(["Size"]),
     warnings,
-    warn: (m) => warnings.push(m),
+    warn,
     resource: resolved,
     opts: {
       profiles,
+      complete,
+      excluded,
+      limits,
       maxDepth: options.maxDepth ?? 3,
+      maxFilterDepth: options.maxFilterDepth,
+      shorthand: options.shorthand !== false,
       descriptions: options.descriptions ?? "brief",
       include: options.include ?? null,
       exclude: (options.exclude ?? []).map(globToRegExp),
@@ -775,65 +980,170 @@ function prepare(resource, options) {
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(argv) {
-  const { values, positionals } = parseArgs({
-    args: argv,
-    allowPositionals: true,
-    options: {
-      id: { type: "string" },
-      title: { type: "string" },
-      profiles: { type: "string" },
-      pointer: { type: "string" },
-      "max-depth": { type: "string" },
-      include: { type: "string" },
-      exclude: { type: "string" },
-      capabilities: { type: "string" },
-      descriptions: { type: "string" },
-      grammar: { type: "string" },
-      out: { type: "string" },
-      quiet: { type: "boolean" },
-      help: { type: "boolean", short: "h" },
-    },
-  });
+const FLAGS = {
+  id: { type: "string" },
+  title: { type: "string" },
+  profiles: { type: "string" },
+  operators: { type: "string" },
+  "drop-operators": { type: "string" },
+  "no-shorthand": { type: "boolean" },
+  "max-filter-depth": { type: "string" },
+  limits: { type: "string" },
+  pointer: { type: "string" },
+  "max-depth": { type: "string" },
+  include: { type: "string" },
+  exclude: { type: "string" },
+  capabilities: { type: "string" },
+  descriptions: { type: "string" },
+  grammar: { type: "string" },
+  out: { type: "string" },
+  config: { type: "string" },
+  quiet: { type: "boolean" },
+  help: { type: "boolean", short: "h" },
+};
 
-  if (values.help || positionals.length !== 1) {
-    // The header comment is the help text; keeping one copy avoids the usual drift.
-    const header = readFileSync(fileURLToPath(import.meta.url), "utf8")
-      .split("*/")[0]
-      .replace(/^#!.*\n/, "")
-      .replace(/^\/\*\*?\n?/, "")
-      .replace(/^ \*\/?/gm, "")
-      .replace(/^ /gm, "")
-      .trimEnd();
-    process.stdout.write(`${header}\n`);
-    process.exit(values.help ? 0 : 1);
+/** Config keys that name a file, and so resolve against the config's own directory. */
+const CONFIG_PATHS = new Set(["resource", "out", "capabilities", "grammar"]);
+
+/** The config file's vocabulary: the JS API's option names, plus where things go. */
+const CONFIG_KEYS = [
+  "resource", "id", "title", "profiles", "operators", "dropOperators", "shorthand",
+  "maxFilterDepth", "limits", "pointer", "maxDepth", "include", "exclude",
+  "descriptions", "out", "capabilities", "grammar", "quiet",
+];
+
+/**
+ * Merges a config file with the command line into one options object.
+ *
+ * The config file is the artifact a provider checks in beside their resource
+ * schema and regenerates from, so the capability selection lives in version
+ * control rather than in whoever's shell history. A flag given explicitly wins
+ * over it, which is what makes a one-off `--include` on top of a checked-in
+ * config work.
+ *
+ * Exported so the merge can be tested without spawning a process.
+ */
+export function resolveOptions(values, positionals, cwd = process.cwd()) {
+  if (positionals.length > 1) {
+    throw new Error(`expected one resource schema, got ${positionals.length}: ${positionals.join(", ")}`);
   }
 
-  const source = positionals[0];
-  const resource = JSON.parse(readFileSync(source, "utf8"));
-  const list = (v) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
+  let config = {};
+  let base = cwd;
+  if (values.config !== undefined) {
+    const file = resolve(cwd, values.config);
+    base = dirname(file);
+    config = JSON.parse(readFileSync(file, "utf8"));
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      throw new Error(`${values.config} must contain a JSON object`);
+    }
+    // Refused rather than ignored, for the same reason parseArgs refuses an
+    // unknown flag: a misspelled key is a selection that silently did not apply.
+    const unknown = Object.keys(config).filter((k) => !CONFIG_KEYS.includes(k));
+    if (unknown.length > 0) {
+      throw new Error(
+        `unknown key${unknown.length > 1 ? "s" : ""} ${unknown.map((k) => `"${k}"`).join(", ")} in ` +
+        `${values.config}; it takes ${CONFIG_KEYS.join(", ")}`,
+      );
+    }
+  }
 
-  const { schema, capabilities, warnings } = generateFilterSchema(resource, {
-    id: values.id,
-    title: values.title,
+  // Paths in a config file are relative to the config file. Paths on the command
+  // line are relative to the cwd, and are left as written so that a generated
+  // $comment names the schema the way the reader would.
+  const configValue = (key) => (CONFIG_PATHS.has(key) ? resolve(base, config[key]) : config[key]);
+  const pick = (flag, key) =>
+    values[flag] !== undefined ? values[flag]
+    : config[key] !== undefined ? configValue(key)
+    : undefined;
+
+  const list = (v) => {
+    if (typeof v !== "string") return v;
+    const items = v.split(",").map((s) => s.trim()).filter(Boolean);
+    return items.length > 0 ? items : undefined;
+  };
+  const integer = (v, flag, min) => {
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < min) {
+      throw new Error(`${flag} must be an integer of ${min} or more, got ${JSON.stringify(v)}`);
+    }
+    return n;
+  };
+  const limits = () => {
+    const raw = values.limits;
+    if (raw === undefined) return config.limits;
+    const text = raw.startsWith("@") ? readFileSync(resolve(cwd, raw.slice(1)), "utf8") : raw;
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(`--limits is not valid JSON: ${error.message}`);
+    }
+  };
+
+  const source = positionals[0] ?? (config.resource !== undefined ? resolve(base, config.resource) : undefined);
+
+  return {
     source,
-    profiles: list(values.profiles),
-    pointer: values.pointer,
-    maxDepth: values["max-depth"] ? Number(values["max-depth"]) : undefined,
-    descriptions: values.descriptions,
-    include: list(values.include),
-    exclude: list(values.exclude),
-    grammarPath: values.grammar,
-  });
+    out: pick("out", "out"),
+    capabilities: pick("capabilities", "capabilities"),
+    quiet: values.quiet ?? config.quiet ?? false,
+    options: {
+      id: pick("id", "id"),
+      title: pick("title", "title"),
+      source,
+      profiles: list(pick("profiles", "profiles")),
+      operators: list(pick("operators", "operators")),
+      dropOperators: list(pick("drop-operators", "dropOperators")),
+      shorthand: values["no-shorthand"] ? false : config.shorthand,
+      maxFilterDepth: integer(pick("max-filter-depth", "maxFilterDepth"), "--max-filter-depth", 1),
+      limits: limits(),
+      pointer: pick("pointer", "pointer"),
+      maxDepth: integer(pick("max-depth", "maxDepth"), "--max-depth", 0),
+      descriptions: pick("descriptions", "descriptions"),
+      include: list(pick("include", "include")),
+      exclude: list(pick("exclude", "exclude")),
+      grammarPath: pick("grammar", "grammar"),
+    },
+  };
+}
+
+function usage() {
+  // The header comment is the help text; keeping one copy avoids the usual drift.
+  return readFileSync(fileURLToPath(import.meta.url), "utf8")
+    .split("*/")[0]
+    .replace(/^#!.*\n/, "")
+    .replace(/^\/\*\*?\n?/, "")
+    .replace(/^ \*\/?/gm, "")
+    .replace(/^ /gm, "")
+    .trimEnd();
+}
+
+function main(argv) {
+  const { values, positionals } = parseArgs({ args: argv, allowPositionals: true, options: FLAGS });
+
+  if (values.help) {
+    process.stdout.write(`${usage()}\n`);
+    process.exit(0);
+  }
+
+  const resolved = resolveOptions(values, positionals);
+  if (!resolved.source) {
+    process.stdout.write(`${usage()}\n`);
+    process.exit(1);
+  }
+
+  const resource = JSON.parse(readFileSync(resolved.source, "utf8"));
+  const { schema, capabilities, warnings } = generateFilterSchema(resource, resolved.options);
 
   const json = `${JSON.stringify(schema, null, 2)}\n`;
-  if (values.out) writeFileSync(values.out, json);
+  if (resolved.out) writeFileSync(resolved.out, json);
   else process.stdout.write(json);
 
-  if (values.capabilities) {
-    writeFileSync(values.capabilities, `${JSON.stringify(capabilities, null, 2)}\n`);
+  if (resolved.capabilities) {
+    writeFileSync(resolved.capabilities, `${JSON.stringify(capabilities, null, 2)}\n`);
   }
-  if (!values.quiet) {
+  if (!resolved.quiet) {
     for (const w of warnings) process.stderr.write(`warning: ${w}\n`);
   }
 }

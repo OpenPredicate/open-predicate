@@ -1,6 +1,6 @@
 {
   "name": "json-query-language",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A JSON-encoded, SQL-flavoured predicate language described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
   "type": "module",
   "license": "MIT",
@@ -26,12 +26,17 @@
     "http-query-method"
   ],
   "main": "query-language-schema.json",
+  "bin": {
+    "jql-generate": "tools/generate-filter-schema.mjs"
+  },
   "exports": {
     ".": "./query-language-schema.json",
-    "./query-language-schema.json": "./query-language-schema.json"
+    "./query-language-schema.json": "./query-language-schema.json",
+    "./generate": "./tools/generate-filter-schema.mjs"
   },
   "files": [
     "query-language-schema.json",
+    "tools/",
     "SPEC.md",
     "README.md",
     "CHANGELOG.md"
@@ -39,7 +44,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "generate": "node tools/generate-filter-schema.mjs",
-    "generate:example": "node tools/generate-filter-schema.mjs examples/pet.schema.json --id https://api.example.com/schemas/pet.filter.json --out examples/pet.filter.json --capabilities examples/pet.capabilities.json",
+    "generate:example": "node tools/generate-filter-schema.mjs --config examples/pet.jql.config.json",
     "example:mcp": "node examples/mcp-server/server.mjs",
     "example:mcp:demo": "node examples/mcp-server/demo.mjs",
     "test:experiment": "node --test experiments/filter-to-sql/compile.test.mjs",

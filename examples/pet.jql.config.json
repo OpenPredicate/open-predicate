@@ -1,0 +1,9 @@
+{
+  "resource": "pet.schema.json",
+  "id": "https://api.example.com/schemas/pet.filter.json",
+  "out": "pet.filter.json",
+  "capabilities": "pet.capabilities.json",
+  "profiles": ["core", "strings", "ranges", "collections"],
+  "descriptions": "brief",
+  "limits": { "maxDepth": 10, "maxClauses": 100, "maxSetLength": 1000 }
+}
