@@ -35,7 +35,8 @@ npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and
 npm login                    # the account must be a member of the open-predicate org
 npm publish --access public  # claims @open-predicate/open-predicate
 
-npm trust github --file release.yml  # run from the repo root
+npm install -g npm@12                # npm 11 cannot configure trust; see below
+npm trust github --file release.yml --allow-publish   # run from the repo root
 npm trust list                       # confirm it stuck
 ```
 
@@ -43,10 +44,10 @@ npm trust list                       # confirm it stuck
 
 Four things about that command, all of which cost a failed attempt to learn:
 
-- **`--file` is the only flag you need.** Run from the repo root, `npm trust` takes both the package name and the `owner/repo` from `package.json` and says so in its output (`(from package.json)`). Passing `--repository` by hand is how you get a typo into a one-shot, irreversible-feeling operation — it warns on a mismatch and then fails the POST with a bare `E400`.
+- **Do not pass `--repository`.** Run from the repo root, `npm trust` takes both the package name and the `owner/repo` from `package.json`, and labels them `(from package.json)` in its output. Passing the repository by hand is how a truncated `OpenPredicate/open-predicat` gets into the request: npm warns about the mismatch, then the POST fails with the same bare `E400` that a stale client produces, so the two causes are indistinguishable from the error alone.
 - **`--file` takes the workflow's *filename* only**, not a path under `.github/workflows/`, and it must end in `.yml` or `.yaml`.
-- **npm's published documentation is ahead of the shipped CLI.** [docs.npmjs.com](https://docs.npmjs.com/cli/v11/commands/npm-trust/) describes `--allow-publish` and `--allow-stage-publish`; npm 11.12.1 rejects both as unknown flags. Publish is permitted by default, so nothing is lost.
-- **It requires account-level 2FA and prompts for an OTP**, so it cannot be run unattended. Add `--dry-run` to check the resolved package, file and repository before committing to it.
+- **Configuring trust needs npm >= 12, and fails opaquely on npm 11.** npm 11.12.1 rejects `--allow-publish` as an unknown flag, and without it its `POST /-/package/<pkg>/trust` body carries no `permissions` member — which the registry now requires, so it answers a bare `E400` with no message and npm prints nothing more. Comparing `lib/trust-cmd.js` between the two versions is what shows it: npm 12 sets `trustConfig.permissions = ['createPackage']`, npm 11 has no such line. This is separate from the npm version *publishing* needs.
+- **It requires account-level 2FA and prompts for an OTP**, so it cannot be run unattended. Add `--dry-run` to check the resolved package, file and repository before committing to it — `--dry-run` returns before the POST, so it passes on npm 11 even though the real call cannot.
 
 Afterwards, set the package's publishing access to **Require two-factor authentication and disallow tokens**. That closes off token auth without affecting OIDC, which is the point of moving to it.
 
@@ -90,7 +91,8 @@ These cost time to work out.
 - **`npm trust` needs account-level 2FA** and will not accept a granular token with *Bypass 2FA*, or legacy basic auth.
 - **`npm view` can 404 on a package that is already published.** It reads a CDN-cached packument, which lags the publish by minutes. `npm dist-tag ls <pkg>` and `npm access get status <pkg>` hit the registry API directly and are what to trust when checking whether a publish landed.
 - **A rehearsal cannot prove npmjs auth works.** `npm publish --dry-run` does not authenticate, and the OIDC credential is only minted by a real publish — so unlike the old token-based job, there is no `npm whoami` that proves the credential ahead of time. The GitHub Packages job still runs one, because that half is still token-authenticated.
-- **Trusted publishing needs npm >= 11.5.1**, which is why the `npmjs` job installs `npm@latest` rather than trusting the runner image.
+- **Two different npm version floors.** *Publishing* over OIDC needs npm >= 11.5.1, which is why the `npmjs` job installs `npm@latest` rather than trusting the runner image. *Configuring* the trusted publisher needs npm >= 12, per the bullet above.
+- **npm 12 declines to run on an odd-numbered Node.** Its engine range is `^22.22.2 || ^24.15.0 || >=26.0.0`, so on Node 25 it warns `EBADENGINE` and runs anyway. `npx npm@12 trust github …` is the way to do the one-off without disturbing a working toolchain — or use the npmjs.com web UI, which has no client-version problem at all.
 - **`environment: release` is decoration until you configure it.** Referencing an environment that does not exist does not block the run; GitHub creates it with no protection rules. Add yourself as a required reviewer under *Settings → Environments → release* to make it a real gate. If you also name that environment in the trusted publisher config, the two must agree or publishing fails.
 - **npm blocks a name from reuse permanently once it has been published and unpublished.** The bootstrap claims `@open-predicate/open-predicate` for good. That was the reason publishing stayed off while the name was a working title; the name is settled now, so the trade is worth making.
 
