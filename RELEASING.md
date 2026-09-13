@@ -7,7 +7,9 @@ A release is a git tag, a GitHub Release, and a package on two registries. Publi
 | [npmjs.com](https://www.npmjs.com/package/@open-predicate/open-predicate) | `@open-predicate/open-predicate` | OIDC trusted publishing — **no secret** | No |
 | GitHub Packages | `@openpredicate/open-predicate` | `GITHUB_TOKEN`, minted per run | Yes |
 
-The two names differ because GitHub Packages accepts only scoped names and the scope must be the repository owner — the `OpenPredicate` organisation, hence `@openpredicate`, lowercased because npm rejects uppercase in a package name. npmjs.com carries the `@open-predicate` scope, which is the npm organisation. Only the `name` field differs; the workflow rewrites it in the GitHub Packages job and the tarball is otherwise identical.
+A third name, unscoped `open-predicate`, is held as a [deprecated placeholder](#the-reserved-unscoped-name). It is not a release target and the pipeline never touches it.
+
+The two release names differ because GitHub Packages accepts only scoped names and the scope must be the repository owner — the `OpenPredicate` organisation, hence `@openpredicate`, lowercased because npm rejects uppercase in a package name. npmjs.com carries the `@open-predicate` scope, which is the npm organisation. Only the `name` field differs; the workflow rewrites it in the GitHub Packages job and the tarball is otherwise identical.
 
 **npmjs.com is the copy to document.** It needs no credential to install. The GitHub Packages copy needs an `.npmrc` with `@openpredicate:registry=https://npm.pkg.github.com` and a token even though the package is public.
 
@@ -43,6 +45,38 @@ npm trust list                               # confirm it stuck
 `npm trust github` is the CLI equivalent of npmjs.com → the package → *Settings* → **Trusted Publisher** → *GitHub Actions*. Either way the trust is pinned to the repository **and the workflow filename** — renaming `release.yml` breaks publishing until the trusted publisher is updated to match.
 
 Afterwards, set the package's publishing access to **Require two-factor authentication and disallow tokens**. That closes off token auth without affecting OIDC, which is the point of moving to it.
+
+## The reserved unscoped name
+
+`open-predicate`, unscoped, is published once as a deprecated placeholder so the name cannot be
+taken by something unrelated to the project. It carries no schema and no code, is not versioned
+alongside releases, and the release pipeline never touches it. Recreate and publish it like this:
+
+```bash
+d=$(mktemp -d) && cd "$d"
+cat > package.json <<'JSON'
+{
+  "name": "open-predicate",
+  "version": "0.0.1",
+  "description": "Name reserved. The package is @open-predicate/open-predicate — install that instead.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/OpenPredicate/open-predicate.git" },
+  "homepage": "https://github.com/OpenPredicate/open-predicate#readme",
+  "files": ["README.md"]
+}
+JSON
+printf '# open-predicate\n\n**Reserved.** Install `@open-predicate/open-predicate` instead.\n' > README.md
+
+npm publish
+npm deprecate open-predicate "Moved to @open-predicate/open-predicate — install that instead."
+```
+
+The `npm deprecate` is the part that matters: it makes `npm install open-predicate` print the
+redirect rather than silently installing an empty package.
+
+An unscoped package is owned by the publishing user rather than by an organisation. Transfer it
+with `npm owner add`, or from npmjs.com → the package → *Settings* → **Transfer**, so it does not
+depend on one account.
 
 ## Notes worth keeping
 

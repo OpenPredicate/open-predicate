@@ -19,6 +19,12 @@ minor release may break compatibility, in which case the break is spelled out be
   `npx @open-predicate/open-predicate` rather than `npx open-predicate-generate`. The `bin` is
   still named `open-predicate-generate` once the package is installed.
 
+  The unscoped `open-predicate` is claimed anyway, as a deprecated placeholder holding two files
+  and no code, so the name cannot end up on something unrelated to the project.
+  `npm install open-predicate` prints a redirect to the scoped package. It is not versioned
+  alongside releases and the release pipeline never touches it — see
+  [`RELEASING.md`](./RELEASING.md#the-reserved-unscoped-name).
+
 ### Added
 
 - **Publishing is back on, and npmjs.com authenticates by OIDC.**
