@@ -12,6 +12,49 @@ No change to the grammar or to the semantics of evaluation. The only edit to
 
 ### Added
 
+- **The generator selects capabilities, not just profiles**
+  ([#11](https://github.com/christosgkoros/json-query-language/issues/11)). Profiles are the unit
+  a server advertises, but three shapes do not fit inside one: a backend with `LIKE` and no
+  `POSITION` supports `$like` and not `$contains`; a key-value store cannot implement `$exists` at
+  all; a provider compiling to a flat conjunctive index wants one AND level and no shorthand. Six
+  new knobs, each available as a flag and as a JS API option — `--operators`, `--drop-operators`,
+  `--no-shorthand`, `--max-filter-depth`, `--limits`, and `--config` to hold the combination. What
+  is declined is absent from the generated schema, so a client learns it from validation rather
+  than from an `unsupported-operator` at runtime. Defaults are unchanged: with none of them given
+  the output is byte-identical to before.
+- **`--config <file>`, and `examples/pet.jql.config.json`.** The capability selection is a
+  decision about the endpoint, not a shell invocation, so it goes in a JSON file checked in beside
+  the resource schema and regenerated from. Its keys are the JS API's option names plus `resource`,
+  `out` and `capabilities`; relative paths in it resolve against its own directory, an explicit
+  flag beats it, and an unrecognised key is refused rather than ignored — a misspelled key is a
+  capability that silently did not apply. `npm run generate:example` now runs through one.
+- **`--max-filter-depth <n>`** caps how deep `$and`/`$or`/`$nor`/`$not` may nest: `1` is a flat
+  filter offering no logical operators at all, `2` permits one level of them. JSON Schema
+  cannot count how deep an instance already is, so the filter is emitted as a chain of levels:
+  level *i* offers the logical operators over level *i+1* and the last level does not offer them
+  at all. Every level shares the operand `$defs`, so the cost is *n* copies of a map of `$ref`s.
+  Field-level `$not` is bounded to a single application by the same flag — under Kleene logic
+  `¬¬X ≡ X` even for UNKNOWN, so a negated negation says nothing the plain constraint does not.
+- **`--limits <json|@file>`** puts the SPEC §7 numbers a provider actually enforces into the
+  capability document. They were emitted unconditionally, so every document generated from the CLI
+  claimed `maxDepth: 10, maxClauses: 100, maxSetLength: 1000` whether or not that was true. Where
+  `--max-filter-depth` is given and `maxDepth` is not, the enforced bound is published.
+- **The generator is part of the package.** `tools/` was not in `package.json` `files` and there
+  was no `bin` entry, so the tool the README points readers at could not travel with the package
+  at all. It is now a `bin` named `jql-generate`, with `json-query-language/generate` exporting
+  `generateFilterSchema` for programmatic use. This repository still publishes no artifacts
+  ([RELEASING.md](./RELEASING.md)), so the command is reachable from a clone or a git install and
+  not from npmjs; what changed is that it is ready to be, and `npm pack` now contains it.
+- **[SPEC.md §2.2](./SPEC.md#22-capability-discovery) documents the capability document's
+  top-level members** — `queryLanguage`, `profiles`, `fields`, `limits` and `filterSchema` — in a
+  table beside the existing per-field one. `limits` appeared in the example and in no table, and
+  `filterSchema`, `itemValues` and `nullable` were emitted by the generator and described nowhere.
+  No normative change to what the members mean.
+- **[SPEC.md §2.1](./SPEC.md#21-profiles) says what a partial profile may and may not do.** The
+  rule was already there — a profile other than `core` is implemented in full or not at all — but
+  it read as a prohibition on the implementation rather than on the advertisement. An endpoint
+  accepting part of a profile is not prohibited from existing; it states what it accepts per path
+  and omits the incomplete profile from `profiles`.
 - **`examples/mcp-server/`** — a runnable MCP server whose one tool, `search_pets`, takes a
   filter as its `filter` argument and nothing else. The tool's `inputSchema` is
   `examples/pet.filter.json` inlined verbatim; validation is ajv against that same file, and
@@ -27,6 +70,14 @@ No change to the grammar or to the semantics of evaluation. The only edit to
 
 ### Changed
 
+- **The capability document's `profiles` reports coverage rather than the request.** It echoed
+  whatever `--profiles` was given; it now lists only the profiles the final operator set covers in
+  full, because [SPEC.md §2.1](./SPEC.md#21-profiles) makes a partial profile one an
+  implementation may not advertise. `--drop-operators '$contains'` therefore costs the `strings`
+  claim, and the per-field `operators` lists carry what is on offer instead — with a warning on
+  stderr naming the operator responsible. Declining a `core` operator drops `core` too, and warns
+  that the result is not a conforming implementation. Nothing changes for a selection that is
+  whole profiles, which is every invocation before this release.
 - **Positioned as one JSON-Schema-described query language with two integration points**, rather
   than as an agent interface. An earlier revision in this same unreleased window led with the MCP
   tool definition and moved §*Exposing search to an agent* ahead of the OpenAPI and generator
@@ -51,6 +102,14 @@ No change to the grammar or to the semantics of evaluation. The only edit to
 
 ### Fixed
 
+- **`--max-depth` accepted a value that was not a number.** It was coerced with `Number()` and
+  never checked, so `--max-depth deep` became `NaN` and silently stopped the walk at the first
+  nested object. It and `--max-filter-depth` are both validated now.
+- **An operator whose dependency was dropped is dropped with it.** `$flags` carries
+  `dependentRequired: ["$regex"]` out of the grammar, so `--drop-operators '$regex'` would have
+  left `$flags` in `properties` with a rule naming a member `additionalProperties: false` forbids
+  — present in the schema and impossible to use. The closure is read off
+  `$defs/ConstraintObject`, so a dependency added later is handled by construction.
 - **Generated filter schemas were not a narrowing** ([#8](https://github.com/christosgkoros/json-query-language/issues/8)).
   `tools/generate-filter-schema.mjs` carried the published constraint object's
   `dependentRequired` rule but not its `dependentSchemas` one, so `{"microchip": {"$unknownAs":

@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import _Ajv2020 from "ajv/dist/2020.js";
 import _addFormats from "ajv-formats";
 
-import { generateFilterSchema } from "../tools/generate-filter-schema.mjs";
+import { generateFilterSchema, resolveOptions } from "../tools/generate-filter-schema.mjs";
 import { sampler, operatorsIn, operatorsUsed } from "./fuzz.mjs";
 
 const Ajv2020 = _Ajv2020.default ?? _Ajv2020;
@@ -113,6 +114,13 @@ test("everything the generated schema accepts, the published grammar also accept
     ["pet", generated],
     ["pet, core profile only", generateFilterSchema(pet, { profiles: ["core"] }).schema],
     ["a recursive resource", generateFilterSchema(RECURSIVE_RESOURCE, { maxDepth: 2 }).schema],
+    // The three shapes --operators/--drop-operators, --no-shorthand and
+    // --max-filter-depth produce. Each one edits the emitted structure, so each
+    // one is a fresh chance to emit something the grammar does not accept — and
+    // the property, not a case list, is what would notice.
+    ["pet, operators dropped", generateFilterSchema(pet, { dropOperators: ["$contains", "$exists", "$regex"] }).schema],
+    ["pet, no shorthand", generateFilterSchema(pet, { shorthand: false }).schema],
+    ["pet, logical nesting capped", generateFilterSchema(pet, { maxFilterDepth: 2 }).schema],
   ];
 
   for (const [label, schema] of targets) {
@@ -396,4 +404,218 @@ test("$unknownAs is emitted only where UNKNOWN is reachable", () => {
     "$unknownAs" in constraintFor("microchip").properties,
     "microchip is nullable, so UNKNOWN is reachable and the modifier applies",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Capability selection (#11): the operator set, the emitted shape, and the
+// claims the capability document is allowed to make about them.
+// ---------------------------------------------------------------------------
+
+/** The constraint object one path resolves to, whichever form the property takes. */
+function constraintOf(schema, path) {
+  const node = schema.properties[path];
+  const ref = node.$ref ?? node.anyOf.at(-1).$ref;
+  return schema.$defs[ref.replace("#/$defs/", "")];
+}
+
+test("--operators selects within the profiles rather than beyond them", () => {
+  const { schema, warnings: w } = generateFilterSchema(pet, {
+    profiles: ["core", "strings"],
+    operators: ["$eq", "$in", "$like", "$between"],
+  });
+  assert.deepEqual(Object.keys(constraintOf(schema, "name").properties), ["$eq", "$in", "$like"]);
+  // $between is in `ranges`, which was not requested: naming it cannot widen
+  // the selection, so the intersection drops it and says why.
+  assert.ok(w.some((m) => m.includes("$between") && m.includes("ranges")), w.join("\n"));
+  assert.ok(!JSON.stringify(schema).includes('"$between"'));
+});
+
+test("an unknown operator is refused rather than silently dropped", () => {
+  // The same treatment --profiles gives an unknown profile: a typo in a
+  // capability selection is a capability that silently did not apply.
+  assert.throws(() => generateFilterSchema(pet, { operators: ["$eq", "$matches"] }), /unknown operator "\$matches"/);
+  assert.throws(() => generateFilterSchema(pet, { dropOperators: ["$liek"] }), /unknown operator "\$liek"/);
+  assert.throws(() => generateFilterSchema(pet, { operators: [] }), /no operators enabled/);
+});
+
+test("--drop-operators reaches the schema and the capability document alike", () => {
+  // Issue #11's first shape: a backend with LIKE but no POSITION offers $like
+  // and not $contains, which no whole-profile choice can express.
+  const { schema, capabilities: caps } = generateFilterSchema(pet, {
+    profiles: ["core", "strings"],
+    dropOperators: ["$contains"],
+  });
+  const ops = Object.keys(constraintOf(schema, "name").properties);
+  assert.ok(ops.includes("$like") && !ops.includes("$contains"));
+  assert.ok(!JSON.stringify(schema).includes('"$contains"'));
+  for (const [path, field] of Object.entries(caps.fields)) {
+    assert.ok(!field.operators.includes("$contains"), `${path} still advertises $contains`);
+  }
+});
+
+test("an operator whose dependency was dropped goes with it", () => {
+  // $flags carries dependentRequired: ["$regex"] out of the grammar, so keeping
+  // it beside a dropped $regex would emit a member that additionalProperties:
+  // false forbids — present in the schema and impossible to use.
+  const { schema, warnings: w } = generateFilterSchema(pet, {
+    profiles: ["core", "regex"],
+    dropOperators: ["$regex"],
+  });
+  const json = JSON.stringify(schema);
+  assert.ok(!json.includes('"$flags"'), "$flags outlived the $regex it depends on");
+  assert.ok(w.some((m) => m.includes("$flags") && m.includes("$regex")), w.join("\n"));
+});
+
+test("the capability document claims only the profiles offered in full", () => {
+  // SPEC §2.1: a profile other than core is implemented in full or not at all.
+  // Narrowing the *schema* is always legal — it accepts fewer filters than the
+  // grammar — but the profile claim is not survivable, and the per-field
+  // operator lists are where the truth goes instead (§2.2).
+  const partial = generateFilterSchema(pet, {
+    profiles: ["core", "strings", "ranges"],
+    dropOperators: ["$contains"],
+  });
+  assert.deepEqual(partial.capabilities.profiles, ["core", "ranges"]);
+  assert.ok(partial.capabilities.fields.name.operators.includes("$like"));
+  assert.ok(partial.warnings.some((m) => m.includes('"strings"') && m.includes("§2.1")));
+
+  // Issue #11's second shape: a store that cannot implement $exists at all.
+  // core is mandatory, so what is left is not a conforming implementation, and
+  // the document must not say otherwise.
+  const noCore = generateFilterSchema(pet, { dropOperators: ["$exists"] });
+  assert.ok(!noCore.capabilities.profiles.includes("core"));
+  assert.ok(noCore.warnings.some((m) => m.includes("not a conforming implementation")));
+});
+
+test("--no-shorthand gives scalars the object-only form", () => {
+  const { schema } = generateFilterSchema(pet, { shorthand: false });
+  assert.deepEqual(schema.properties.status, { $ref: "#/$defs/C_status" });
+  assert.ok(!("anyOf" in schema.properties.status));
+  // The root description teaches the rules a reader would otherwise get wrong.
+  // Leaving the shorthand among them would advertise a form this schema rejects.
+  assert.ok(!schema.description.includes("bare scalar"));
+  assert.ok(generateFilterSchema(pet, {}).schema.description.includes("bare scalar"));
+
+  const check = makeAjv().compile(schema);
+  assert.equal(check({ status: "available" }), false, "the shorthand should be gone");
+  assert.ok(check({ status: { $eq: "available" } }), errs(check));
+});
+
+test("--max-filter-depth bounds how deep the logical operators nest", () => {
+  // Issue #11's third shape: a provider compiling to a flat conjunctive index
+  // wants one AND level and no more. JSON Schema cannot count how deep an
+  // instance already is, so the filter is unrolled into a chain of levels —
+  // depth 1 being the flat filter that offers no logical operators at all.
+  const flat = generateFilterSchema(pet, { maxFilterDepth: 1 }).schema;
+  assert.deepEqual(Object.keys(flat.properties).filter((k) => k.startsWith("$")), []);
+
+  const { schema } = generateFilterSchema(pet, { maxFilterDepth: 2 });
+  const deeper = schema.$defs[schema.properties.$and.items.$ref.replace("#/$defs/", "")];
+  assert.deepEqual(Object.keys(deeper.properties).filter((k) => k.startsWith("$")), []);
+  assert.ok("status" in deeper.properties, "every level offers the same fields");
+  assert.equal(deeper.properties.status.$ref, schema.properties.status.$ref, "levels share the operand defs");
+
+  const check = makeAjv().compile(schema);
+  assert.ok(check({ $and: [{ status: "available" }, { name: { $like: "F%" } }] }), errs(check));
+  assert.equal(check({ $and: [{ $and: [{ status: "available" }] }] }), false, "two AND levels");
+  assert.equal(check({ $and: [{ $or: [{ status: "available" }] }] }), false, "OR inside AND");
+  // Field-level $not is self-referential too, so it is bounded to a single
+  // application: under Kleene logic ¬¬X ≡ X even for UNKNOWN.
+  assert.ok(check({ status: { $not: { $eq: "available" } } }), errs(check));
+  assert.equal(check({ status: { $not: { $not: { $eq: "available" } } } }), false, "negated negation");
+
+  assert.throws(() => generateFilterSchema(pet, { maxFilterDepth: 0 }), /--max-filter-depth/);
+});
+
+test("--include reaches every level of a capped filter", () => {
+  // The levels repeat the root's field properties, so pruning only the root left
+  // every excluded path reachable one $and down.
+  const { schema } = generateFilterSchema(pet, { include: ["status"], maxFilterDepth: 2 });
+  const deeper = schema.$defs[schema.properties.$and.items.$ref.replace("#/$defs/", "")];
+  assert.deepEqual(Object.keys(deeper.properties), ["status"]);
+
+  const check = makeAjv().compile(schema);
+  assert.ok(check({ $and: [{ status: "available" }] }), errs(check));
+  assert.equal(check({ $and: [{ name: "Fido" }] }), false, "name is not in --include");
+});
+
+test("the default is still one self-referential filter, not a chain", () => {
+  // The chain is what --max-filter-depth costs; nobody who did not ask for a
+  // bound should pay it.
+  assert.equal(generated.properties.$and.items.$ref, "#");
+  assert.ok(!Object.keys(generated.$defs).some((name) => name.includes("_depth_")));
+});
+
+test("--limits publishes the provider's real bounds", () => {
+  // SPEC §7's numbers were emitted unconditionally, so every generated document
+  // claimed them whether or not they were true.
+  const { capabilities: caps } = generateFilterSchema(pet, { limits: { maxClauses: 40 } });
+  assert.deepEqual(caps.limits, { maxDepth: 10, maxClauses: 40, maxSetLength: 1000 });
+
+  assert.throws(() => generateFilterSchema(pet, { limits: { maxNesting: 4 } }), /unknown limit "maxNesting"/);
+  assert.throws(() => generateFilterSchema(pet, { limits: { maxDepth: 0 } }), /must be a positive integer/);
+
+  // A schema that refuses nesting past n and a document claiming a deeper
+  // maxDepth would contradict each other, so the enforced bound is published.
+  const capped = generateFilterSchema(pet, { maxFilterDepth: 3 });
+  assert.equal(capped.capabilities.limits.maxDepth, 3);
+  const both = generateFilterSchema(pet, { maxFilterDepth: 3, limits: { maxDepth: 9 } });
+  assert.equal(both.capabilities.limits.maxDepth, 9);
+  assert.ok(both.warnings.some((m) => m.includes("maxDepth")));
+});
+
+test("a config file is the selection, and an explicit flag still beats it", () => {
+  // The config file is what a provider checks in beside the resource schema and
+  // regenerates from, so its paths are relative to itself rather than to
+  // whatever directory the command happened to run in.
+  const dir = mkdtempSync(join(tmpdir(), "jql-config-"));
+  writeFileSync(join(dir, "pet.schema.json"), readFileSync(join(repo, "examples", "pet.schema.json")));
+  const file = join(dir, "jql.config.json");
+  writeFileSync(file, JSON.stringify({
+    resource: "pet.schema.json",
+    profiles: ["core", "strings"],
+    dropOperators: ["$contains"],
+    shorthand: false,
+    limits: { maxDepth: 4 },
+    out: "pet.filter.json",
+  }));
+
+  const fromConfig = resolveOptions({ config: file }, [], repo);
+  assert.equal(fromConfig.source, join(dir, "pet.schema.json"));
+  assert.equal(fromConfig.out, join(dir, "pet.filter.json"));
+  assert.deepEqual(fromConfig.options.dropOperators, ["$contains"]);
+  assert.equal(fromConfig.options.shorthand, false);
+  assert.deepEqual(fromConfig.options.limits, { maxDepth: 4 });
+
+  // A one-off refinement on top of a checked-in config is the point of having
+  // both, so the flag wins.
+  const overridden = resolveOptions({ config: file, profiles: "core", include: "status,name" }, [], repo);
+  assert.deepEqual(overridden.options.profiles, ["core"]);
+  assert.deepEqual(overridden.options.include, ["status", "name"]);
+  assert.deepEqual(overridden.options.dropOperators, ["$contains"], "the config still supplies the rest");
+
+  // The schema the config describes is generated without further arguments.
+  const { schema } = generateFilterSchema(
+    JSON.parse(readFileSync(fromConfig.source, "utf8")),
+    fromConfig.options,
+  );
+  assert.ok(!JSON.stringify(schema).includes('"$contains"'));
+  assert.deepEqual(schema.properties.status, { $ref: "#/$defs/C_status" });
+});
+
+test("a misspelled config key is refused rather than ignored", () => {
+  const dir = mkdtempSync(join(tmpdir(), "jql-config-"));
+  const file = join(dir, "jql.config.json");
+  writeFileSync(file, JSON.stringify({ profiles: ["core"], dropOperator: ["$exists"] }));
+  assert.throws(() => resolveOptions({ config: file }, [], repo), /unknown key "dropOperator"/);
+
+  writeFileSync(file, JSON.stringify(["core"]));
+  assert.throws(() => resolveOptions({ config: file }, [], repo), /must contain a JSON object/);
+});
+
+test("--max-depth refuses a value that is not a number", () => {
+  // It was coerced with Number() and never checked, so --max-depth deep became
+  // NaN and silently stopped the walk at the first nested object.
+  assert.throws(() => resolveOptions({ "max-depth": "deep" }, ["x.json"], repo), /--max-depth must be an integer/);
+  assert.equal(resolveOptions({ "max-depth": "0" }, ["x.json"], repo).options.maxDepth, 0);
 });

@@ -23,7 +23,7 @@ One schema, two integration points, because JSON Schema is what both already spe
 - **Semantics** — [`SPEC.md`](./SPEC.md) — nulls, paths, coercion, errors, limits
 - **MCP server** — [`examples/mcp-server/`](./examples/mcp-server) — a search tool with the language as its `inputSchema`, runnable
 - **OpenAPI documents** — [`examples/`](./examples) — working 3.1 (`POST /…/search`) and 3.2 (`QUERY`) integrations
-- **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema into a per-field filter schema
+- **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema, plus the slice of the language you can serve, into a per-field filter schema
 - **Compared with GraphQL** — [`COMPARISON.md`](./COMPARISON.md) — what this overlaps with, what it does not, and what a JSON-Schema-native alternative would still need
 - **Version** — `0.4.0`, and the schema's `$id` names `v0.4.0`. This release is **breaking**: it replaces two array mechanisms with one quantifier family and adds `$unknownAs`. See [`CHANGELOG.md`](./CHANGELOG.md) for the migration, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for why.
 
@@ -323,7 +323,43 @@ What it decides, and why:
 - **Prose comes from the grammar**, not from the generator, so operator descriptions stay in one place. `--descriptions brief` (the default) keeps them for the operators people get wrong and drops them for `$eq` and `$gt`, which matters when the output goes into an MCP tool definition.
 - **Narrowing only.** Every filter the generated schema accepts is also valid against the published grammar, so a server implementing the published semantics evaluates it unchanged. The rule that makes this hold: the constraint object's own keywords are copied from the grammar, and only its *operator set* and *operand schemas* are narrowed. `tests/generator.test.mjs` asserts the property by sampling filters out of each generated schema's vocabulary — a list of examples can only re-check the leaks someone already thought of.
 
-Opt a property out, or override its operators, from the resource schema itself:
+### Selecting what you support
+
+Everything above narrows the *value* side of a filter. The other half is the *feature* side: which operators, and which parts of the grammar, your backend can actually honour. Whatever you decline here the generated schema refuses, so a client finds out from validation rather than from a runtime error — or worse, from an empty result set.
+
+Profiles are the coarse unit, and three shapes do not fit inside one:
+
+| Your situation | Say |
+| --- | --- |
+| `LIKE` but no `POSITION`, so `$like` works and `$contains` does not | `--drop-operators '$contains'` |
+| A key-value store with no notion of key absence, so `$exists` is unimplementable | `--drop-operators '$exists'` |
+| A flat conjunctive index: one AND level and no shorthand | `--max-filter-depth 2 --no-shorthand` |
+| A single-clause lookup: no logical operators at all | `--max-filter-depth 1` |
+
+`--operators` takes the other direction — exactly these, intersected with `--profiles` — and `--limits` replaces SPEC §7's defaults with your real bounds in the capability document.
+
+The combinations get long, and they are not a thing to retype, so the same selection goes in a file you check in beside the resource schema and regenerate from:
+
+```json
+{
+  "resource": "pet.schema.json",
+  "id": "https://api.example.com/schemas/pet.filter.json",
+  "out": "pet.filter.json",
+  "capabilities": "pet.capabilities.json",
+  "profiles": ["core", "strings"],
+  "dropOperators": ["$contains", "$exists"],
+  "shorthand": false,
+  "limits": { "maxDepth": 4, "maxClauses": 40, "maxSetLength": 100 }
+}
+```
+
+```bash
+node tools/generate-filter-schema.mjs --config jql.config.json   # paths resolve against the config file
+```
+
+One consequence worth knowing before you use it. [SPEC §2.1](./SPEC.md#21-profiles) says a profile other than `core` is implemented in full or not at all, so a profile you have narrowed is no longer one you can advertise: it drops out of the capability document's `profiles`, the per-field `operators` lists carry what you do offer, and the generator says on stderr which operator cost you the claim. Declining a `core` operator costs conformance outright, and it says that too. The *schema* stays legal either way — it accepts strictly fewer filters than the published grammar, which is the only rule generation has.
+
+Opt a single property out, or override its operators, from the resource schema itself:
 
 ```json
 { "internalNotes": { "type": "string", "x-jql": false } }
@@ -331,6 +367,8 @@ Opt a property out, or override its operators, from the resource schema itself:
 ```
 
 `--include`, `--exclude`, `--max-depth` and `--pointer` do the rest. Run `--help` for the full list.
+
+The tool is part of the package and is installed as `jql-generate`, so once the package is published it is `npx jql-generate` rather than a path. It is not published yet — see [Status](#status) — so today it is either a clone or `npm install github:christosgkoros/json-query-language`.
 
 ## Exposing search to an agent
 
@@ -389,10 +427,10 @@ query-language-schema.json     the schema — the only file you need to consume
 SPEC.md                        normative semantics
 RELEASING.md                   how a release is cut (no artifacts are published)
 COMPARISON.md                  how this relates to GraphQL, OData and JSON:API
-tools/generate-filter-schema.mjs   resource schema -> per-field filter schema + capabilities
+tools/generate-filter-schema.mjs   resource schema + capability selection -> filter schema + capabilities
 examples/mcp-server/           a runnable MCP server; the language as a tool's inputSchema
 examples/                      working OpenAPI 3.1 and 3.2 documents
-examples/pet.schema.json       the generator's input, and its committed output beside it
+examples/pet.schema.json       the generator's input, its config, and its committed output beside them
 tests/validate.test.mjs        meta-validation + fixture runner
 tests/generator.test.mjs       the generator: narrowing, soundness, recursion
 tests/fixtures/valid/          one per operator; also the docs' example set
@@ -417,6 +455,7 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 | `$id` / `$ref` — `https://christosgkoros.com/json/query-language/v0.4.0/query-language-schema.json` | Does not resolve. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
 | The package names `json-query-language` and `@christosgkoros/json-query-language` | Not published, to npmjs or to GitHub Packages, and the release pipeline no longer tries to. Claiming a name under a working title would burn it. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
+| `npx jql-generate` | Not reachable from a registry, for the reason in the row above. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install; it does not work from npmjs. |
 
 These will be fixed in one pass once the name is fixed, because fixing them before then means doing it twice. Until then the only fetchable copy of the schema is raw GitHub:
 

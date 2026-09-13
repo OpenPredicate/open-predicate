@@ -41,6 +41,8 @@ Operators are grouped into profiles so that a server can implement a subset hone
 
 A conforming implementation MUST implement `core` in full. Every other profile is OPTIONAL, and MUST be implemented in full or not at all — partial profiles defeat the purpose of advertising them.
 
+An implementation that accepts only part of a profile is not prohibited from existing; it is prohibited from *advertising* that profile. It states what it accepts per path instead, through the `operators` member of §2.2, and omits the incomplete profile from `profiles`.
+
 An implementation MUST reject an operator it does not support with an `unsupported-operator` error (§8). It MUST NOT silently ignore the clause: dropping a predicate from a filter widens the result set, which is the most dangerous possible failure mode for an authorization-adjacent filter.
 
 ### 2.2 Capability discovery
@@ -72,14 +74,26 @@ An implementation SHOULD publish which profiles and fields it accepts. This spec
 }
 ```
 
+The top-level members:
+
+| Member | Required | Meaning |
+| --- | --- | --- |
+| `queryLanguage` | SHOULD | The `$id` of the grammar version this endpoint implements. |
+| `profiles` | yes | The profiles implemented **in full**, per §2.1. An endpoint that accepts only part of a profile MUST NOT list it here; the per-path `operators` are where the accepted subset is stated. A client MUST therefore read `operators` rather than deriving a path's operators from `profiles`. |
+| `fields` | yes | One member per queryable path, described below. |
+| `limits` | SHOULD | The bounds of §7 as this endpoint enforces them. Absent means the §7 defaults apply. |
+| `filterSchema` | — | The URL of a per-resource filter schema (§6) carrying the same operators and domains, where one is published. |
+
 Each member of `fields` describes one queryable path:
 
 | Member | Required | Meaning |
 | --- | --- | --- |
-| `operators` | yes | The operators accepted on this path. A subset of those implied by `profiles`. |
+| `operators` | yes | The operators accepted on this path. A subset of those implied by `profiles`, and the authoritative list where a profile is only partly implemented. |
 | `type` | SHOULD | The JSON type of the field's value, drawn from the `$type` vocabulary of §5.10. |
 | `format` | — | A format name constraining a `type: "string"` value: `date`, `date-time`, `uuid`, and so on. |
 | `values` | SHOULD, where the domain is closed | The complete set of accepted values. |
+| `itemValues` | SHOULD, where an array's element domain is closed | The complete set of accepted element values. |
+| `nullable` | — | Present and `true` where the field's value may be `null`, which is what makes `$isNull` and `$unknownAs` meaningful on it (§4.6). |
 | `description` | — | Prose stating what the field holds. |
 
 `operators` tells a client what it may write; `type`, `format` and `values` tell it *what to write*. The grammar cannot carry that second half: field names are constrained through `propertyNames`, but every path shares one `Constraint` definition, so per-field operand domains are not expressible in the schema (§6). A filter naming a real field with a value outside that field's domain is therefore well-formed, and matches nothing — the failure surfaces as an empty result set rather than an error (§8). The capability document is the only place the domain can be stated, which is why `values` is RECOMMENDED wherever the domain is closed.
