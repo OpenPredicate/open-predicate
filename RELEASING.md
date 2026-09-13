@@ -51,6 +51,24 @@ Four things about that command, all of which cost a failed attempt to learn:
 
 Afterwards, set the package's publishing access to **Require two-factor authentication and disallow tokens**. That closes off token auth without affecting OIDC, which is the point of moving to it.
 
+**The configuration in force**, as `npm trust list` reports it:
+
+| | |
+| --- | --- |
+| `id` | `d8641874-290e-4f26-b68b-6af472c8cb44` |
+| `type` | `github` |
+| `repository` | `OpenPredicate/open-predicate` |
+| `file` | `release.yml` |
+| `permissions` | `publish, stage publish` |
+
+The `id` is written down here because `npm trust revoke --id=<id>` is the only way to remove a
+configuration, and the only way to read the id back is `npm trust list`, which needs two-factor
+auth. It is an identifier, not a credential — revoking still requires an authenticated owner.
+
+`permissions` covers `stage publish` as well as `publish` even though only `--allow-publish` was
+passed. Nothing here uses `npm stage publish`; narrow it by revoking and re-creating if that
+bothers you.
+
 ## The reserved unscoped name
 
 `open-predicate`, unscoped, is published once as a deprecated placeholder so the name cannot be
