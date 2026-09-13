@@ -17,7 +17,7 @@ info:
     name: MIT
     identifier: MIT
   description: |
-    Demonstrates referencing the JSON Query Language filter schema from the
+    Demonstrates referencing the OpenPredicate filter schema from the
     request body of a QUERY operation.
 
 servers:
@@ -95,7 +95,7 @@ components:
     # $defs/FieldPath, with an enum — the narrowing then applies at every
     # nesting level. See README §Restricting the queryable field set.
     Filter:
-      $ref: '../query-language-schema.json'
+      $ref: '../open-predicate-schema.json'
 
     PetSearchRequest:
       type: object

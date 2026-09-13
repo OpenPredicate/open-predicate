@@ -1,19 +1,25 @@
 {
-  "name": "json-query-language",
-  "version": "0.5.0",
-  "description": "A JSON-encoded, SQL-flavoured predicate language described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
+  "name": "open-predicate",
+  "version": "0.6.0",
+  "description": "OpenPredicate — an open standard for JSON-encoded, SQL-flavoured predicates, described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
   "type": "module",
   "license": "MIT",
   "author": "Christos Gkoros",
+  "contributors": [
+    "OpenPredicate (https://openpredicate.tech)"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/christosgkoros/json-query-language.git"
+    "url": "git+https://github.com/OpenPredicate/open-predicate.git"
   },
-  "homepage": "https://github.com/christosgkoros/json-query-language#readme",
+  "homepage": "https://github.com/OpenPredicate/open-predicate#readme",
   "bugs": {
-    "url": "https://github.com/christosgkoros/json-query-language/issues"
+    "url": "https://github.com/OpenPredicate/open-predicate/issues"
   },
   "keywords": [
+    "open-predicate",
+    "openpredicate",
+    "predicate",
     "json-schema",
     "openapi",
     "query-language",
@@ -25,17 +31,17 @@
     "llm-tools",
     "http-query-method"
   ],
-  "main": "query-language-schema.json",
+  "main": "open-predicate-schema.json",
   "bin": {
-    "jql-generate": "tools/generate-filter-schema.mjs"
+    "open-predicate-generate": "tools/generate-filter-schema.mjs"
   },
   "exports": {
-    ".": "./query-language-schema.json",
-    "./query-language-schema.json": "./query-language-schema.json",
+    ".": "./open-predicate-schema.json",
+    "./open-predicate-schema.json": "./open-predicate-schema.json",
     "./generate": "./tools/generate-filter-schema.mjs"
   },
   "files": [
-    "query-language-schema.json",
+    "open-predicate-schema.json",
     "tools/",
     "SPEC.md",
     "README.md",
@@ -44,7 +50,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "generate": "node tools/generate-filter-schema.mjs",
-    "generate:example": "node tools/generate-filter-schema.mjs --config examples/pet.jql.config.json",
+    "generate:example": "node tools/generate-filter-schema.mjs --config examples/pet.open-predicate.config.json",
     "example:mcp": "node examples/mcp-server/server.mjs",
     "example:mcp:demo": "node examples/mcp-server/demo.mjs",
     "test:experiment": "node --test experiments/filter-to-sql/compile.test.mjs",

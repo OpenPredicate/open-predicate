@@ -1,7 +1,7 @@
 # Experiment: compiling a filter to SQL
 
 **This is an exercise, not a deliverable.** Nothing here is published, nothing
-here is versioned, and nothing in `../../query-language-schema.json`,
+here is versioned, and nothing in `../../open-predicate-schema.json`,
 `../../SPEC.md` or `../../tools/` depends on it. One example does —
 [`examples/mcp-server`](../../examples/mcp-server) imports `compile.mjs` so its
 search tool executes real queries rather than a second evaluator written for
@@ -311,7 +311,7 @@ keeps its totality everywhere.
 
 **4. `$regex` is specified in a dialect no SQL engine implements.** §5.7 says
 ECMA-262. SQLite has no built-in `REGEXP` implementation, so the harness
-registers a `jql_regex()` function backed by a JavaScript `RegExp` — which
+registers a `op_regex()` function backed by a JavaScript `RegExp` — which
 makes SQLite the *more* conformant of the two dialects, at the cost of a
 backtracking engine inside the query, precisely the ReDoS surface §7 warns
 about. Postgres has `~` and `~*`, but they are POSIX ARE, which overlaps

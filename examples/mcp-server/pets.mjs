@@ -129,7 +129,7 @@ export function rows() {
  * `pet.filter.json` names, which is not a coincidence — both sides are
  * derived from `pet.schema.json`. `internalNotes` is in neither: SPEC.md §3.5
  * requires an unexposed path to be rejected, not quietly resolved, and the
- * generator dropped it because the resource schema marks it `"x-jql": false`.
+ * generator dropped it because the resource schema marks it `"x-open-predicate": false`.
  */
 export const BINDING = {
   dialect: "sqlite",

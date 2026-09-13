@@ -16,7 +16,7 @@ const repo = join(here, "..");
 const fixtures = join(here, "fixtures");
 
 const schema = JSON.parse(
-  readFileSync(join(repo, "query-language-schema.json"), "utf8"),
+  readFileSync(join(repo, "open-predicate-schema.json"), "utf8"),
 );
 
 /**

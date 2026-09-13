@@ -1,4 +1,6 @@
-# JSON Query Language
+<img src="./assets/logo.svg" alt="" width="76" />
+
+# OpenPredicate
 
 A JSON-encoded, SQL-flavoured **predicate language**, described by a single JSON Schema — `$ref` it from an OpenAPI document, or inline it into an MCP tool's `inputSchema`.
 
@@ -19,15 +21,16 @@ Write the filter grammar once. Use it for every `POST /…/search` and `QUERY /�
 
 One schema, two integration points, because JSON Schema is what both already speak: it is the interchange format of OpenAPI 3.1, and it is what an MCP `inputSchema` is.
 
-- **Schema** — [`query-language-schema.json`](./query-language-schema.json) (JSON Schema draft 2020-12)
+- **Schema** — [`open-predicate-schema.json`](./open-predicate-schema.json) (JSON Schema draft 2020-12)
 - **Semantics** — [`SPEC.md`](./SPEC.md) — nulls, paths, coercion, errors, limits
 - **MCP server** — [`examples/mcp-server/`](./examples/mcp-server) — a search tool with the language as its `inputSchema`, runnable
 - **OpenAPI documents** — [`examples/`](./examples) — working 3.1 (`POST /…/search`) and 3.2 (`QUERY`) integrations
 - **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema, plus the slice of the language you can serve, into a per-field filter schema
 - **Compared with GraphQL** — [`COMPARISON.md`](./COMPARISON.md) — what this overlaps with, what it does not, and what a JSON-Schema-native alternative would still need
+- **Stewardship** — the [OpenPredicate](https://openpredicate.tech) organisation — see [About OpenPredicate](#about-openpredicate)
 - **Version** — `0.5.0`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and 0.5.0 changed only the tooling and what it may claim. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
 
-> **Work in progress — including the name.** This is a design published for review, not a distribution you can depend on yet. The artifact's own name is a working title, and every identifier that follows from it — the package names, the schema `$id`, the URLs in the integration examples — is a placeholder. Several do not currently resolve, and getting them right is deliberately not a goal until the name is settled. The grammar and its semantics are the part worth reviewing. See [Status](#status) before you try to install or `$ref` anything.
+> **Work in progress — but no longer in name.** This is a design published for review, not a distribution you can depend on yet. The name is now settled: *OpenPredicate*, stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, with every identifier derived from it — the repository, both package names, the schema `$id`, the problem-type URIs — fixed in the one pass this README used to promise. What remains provisional is *availability*, not naming: the schema is not yet served from `openpredicate.tech` and nothing is published to a registry. The grammar and its semantics are the part worth reviewing. See [Status](#status) before you try to install or `$ref` anything.
 
 ---
 
@@ -185,7 +188,7 @@ paths:
 components:
   schemas:
     Filter:
-      $ref: 'https://christosgkoros.com/json/query-language/v0.4.0/query-language-schema.json'
+      $ref: 'https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json'
     PetSearchRequest:
       type: object
       required: [filter]
@@ -230,7 +233,7 @@ Both work, and they trade off differently:
 
 | | Absolute `$id` URL | Bundled copy |
 | --- | --- | --- |
-| `$ref` | `https://…/v0.4.0/query-language-schema.json` | `./schemas/query-language-schema.json` |
+| `$ref` | `https://…/v0.4.0/open-predicate-schema.json` | `./schemas/open-predicate-schema.json` |
 | Upgrades | change one URL | re-vendor the file |
 | Tooling | needs a resolver that fetches remote refs | works everywhere |
 | MCP `inputSchema` | no — nothing on that path resolves remote refs | yes, and it is the only option |
@@ -252,7 +255,7 @@ Bundle the schema and replace **one** definition, `$defs/FieldPath`:
   "$ref": "#/$defs/Filter",
   "$defs": {
     "FieldPath": { "type": "string", "enum": ["id", "name", "status", "born"] },
-    "…": "everything else copied verbatim from query-language-schema.json"
+    "…": "everything else copied verbatim from open-predicate-schema.json"
   }
 }
 ```
@@ -277,7 +280,7 @@ A rejected filter is a `400` that says *which* of five things went wrong — `ma
 
 ```json
 {
-  "type": "https://christosgkoros.com/json/query-language/problems/unsupported-operator",
+  "type": "https://openpredicate.tech/problems/unsupported-operator",
   "title": "Unsupported operator",
   "status": 400,
   "detail": "$regex is not in this endpoint's advertised profiles (core, strings).",
@@ -354,7 +357,7 @@ The combinations get long, and they are not a thing to retype, so the same selec
 ```
 
 ```bash
-node tools/generate-filter-schema.mjs --config jql.config.json   # paths resolve against the config file
+node tools/generate-filter-schema.mjs --config open-predicate.config.json   # paths resolve against the config file
 ```
 
 One consequence worth knowing before you use it. [SPEC §2.1](./SPEC.md#21-profiles) says a profile other than `core` is implemented in full or not at all, so a profile you have narrowed is no longer one you can advertise: it drops out of the capability document's `profiles`, the per-field `operators` lists carry what you do offer, and the generator says on stderr which operator cost you the claim. Declining a `core` operator costs conformance outright, and it says that too. The *schema* stays legal either way — it accepts strictly fewer filters than the published grammar, which is the only rule generation has.
@@ -362,13 +365,13 @@ One consequence worth knowing before you use it. [SPEC §2.1](./SPEC.md#21-profi
 Opt a single property out, or override its operators, from the resource schema itself:
 
 ```json
-{ "internalNotes": { "type": "string", "x-jql": false } }
-{ "location":      { "type": "string", "x-jql": { "operators": ["$eq", "$in"] } } }
+{ "internalNotes": { "type": "string", "x-open-predicate": false } }
+{ "location":      { "type": "string", "x-open-predicate": { "operators": ["$eq", "$in"] } } }
 ```
 
 `--include`, `--exclude`, `--max-depth` and `--pointer` do the rest. Run `--help` for the full list.
 
-The tool is part of the package and is installed as `jql-generate`, so once the package is published it is `npx jql-generate` rather than a path. It is not published yet — see [Status](#status) — so today it is either a clone or `npm install github:christosgkoros/json-query-language`.
+The tool is part of the package and is installed as `open-predicate-generate`, so once the package is published it is `npx open-predicate-generate` rather than a path. It is not published yet — see [Status](#status) — so today it is either a clone or `npm install github:OpenPredicate/open-predicate`.
 
 ## Exposing search to an agent
 
@@ -423,7 +426,7 @@ A filter is user input that becomes a query plan. [SPEC.md §7](./SPEC.md#7-safe
 ## Repository layout
 
 ```
-query-language-schema.json     the schema — the only file you need to consume
+open-predicate-schema.json     the schema — the only file you need to consume
 SPEC.md                        normative semantics
 RELEASING.md                   how a release is cut (no artifacts are published)
 COMPARISON.md                  how this relates to GraphQL, OData and JSON:API
@@ -444,28 +447,36 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 
 ## Status
 
-**Work in progress.** Pre-1.0 and pre-naming. This repository is published so the design can be read and argued with; it is not yet packaged for consumption, and the two should not be confused.
+**Work in progress.** Pre-1.0. This repository is published so the design can be read and argued with; it is not yet packaged for consumption, and the two should not be confused.
 
-**The name is not settled.** *JSON Query Language* is a working title. If the artifact is renamed before 1.0 — which is likely — the repository URL, both package names and the schema `$id` all change together. Everything downstream of the name is therefore provisional by construction.
+**The name is settled.** *OpenPredicate* is the name; [`OpenPredicate/open-predicate`](https://github.com/OpenPredicate/open-predicate) is the home; `openpredicate.tech` is the namespace every identifier derives from — the repository, both package names, the schema `$id`, the problem-type URIs, the CLI name and the vendor keyword alike. [`CHANGELOG.md`](./CHANGELOG.md) lists them in one table.
 
-**Identifiers in this README are placeholders, and their accuracy is not a current goal.** Concretely, and so nobody has to discover it the hard way:
+**What is settled is the naming, not yet the availability.** The identifiers below are final, but not all of them are reachable yet — so nobody has to discover it the hard way:
 
 | What the README says | Reality today |
 | --- | --- |
-| `$id` / `$ref` — `https://christosgkoros.com/json/query-language/v0.4.0/query-language-schema.json` | Does not resolve. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
-| The package names `json-query-language` and `@christosgkoros/json-query-language` | Not published, to npmjs or to GitHub Packages, and the release pipeline no longer tries to. Claiming a name under a working title would burn it. |
+| `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | The permanent namespace, but not served yet. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
+| The package names `open-predicate` and `@openpredicate/open-predicate` | Not published yet, to npmjs or to GitHub Packages, and the release pipeline does not try to. Both names are settled, so they are what will be claimed. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
-| `npx jql-generate` | Not reachable from a registry, for the reason in the row above. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install; it does not work from npmjs. |
+| `npx open-predicate-generate` | Not reachable from a registry, for the reason in the row above. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install; it does not work from npmjs. |
 
-These will be fixed in one pass once the name is fixed, because fixing them before then means doing it twice. Until then the only fetchable copy of the schema is raw GitHub:
+Serving the schema at its `$id` and publishing the package are the remaining work. Until then the only fetchable copy of the schema is raw GitHub:
 
 ```bash
-curl -O https://raw.githubusercontent.com/christosgkoros/json-query-language/main/query-language-schema.json
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
 ```
 
 Vendor that file rather than referencing it remotely, and treat the resolvable-`$id` workflow the OpenAPI sections describe as the intended end state rather than a description of today.
 
 **What is stable enough to review.** The grammar, the operator set and profile grouping, the null and three-valued semantics, and the error model. Those are what the schema, [`SPEC.md`](./SPEC.md) and the test suite pin down, and they are what feedback is most useful on. The grammar may still change before 1.0; each break is recorded in [`CHANGELOG.md`](./CHANGELOG.md) with a migration note.
+
+## About OpenPredicate
+
+OpenPredicate is stewarded by the [**OpenPredicate**](https://openpredicate.tech) organisation, at [github.com/OpenPredicate](https://github.com/OpenPredicate). Its purpose is to take this predicate grammar from a single-author design to an **open standard**, and to push for its adoption at the places APIs are already described: `$ref`-ed from OpenAPI documents, inlined as MCP tool `inputSchema`s, and carried as the body of the HTTP `QUERY` method.
+
+That goal sets the terms of the work. The grammar is specified normatively in [`SPEC.md`](./SPEC.md) rather than left to a reference implementation, so that independent implementations can agree; every breaking change is recorded with a migration note; and each significant design decision is argued in writing under [`decisions/`](./decisions) rather than settled by commit. Adoption arguments belong in the open too — [`COMPARISON.md`](./COMPARISON.md) is where the case against the nearest alternative is made and its gaps admitted.
+
+The specification and this repository are [MIT](./LICENSE)-licensed, so the grammar can be implemented, vendored, extended and re-specified without permission. Issues and design discussion are welcome at [github.com/OpenPredicate/open-predicate](https://github.com/OpenPredicate/open-predicate/issues).
 
 ## License
 

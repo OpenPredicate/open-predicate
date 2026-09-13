@@ -1,6 +1,8 @@
-# JSON Query Language — Specification
+# OpenPredicate — Specification
 
-**Version 0.4.0** · Dialect: JSON Schema draft 2020-12 · Schema: [`query-language-schema.json`](./query-language-schema.json)
+**Version 0.4.0** · Dialect: JSON Schema draft 2020-12 · Schema: [`open-predicate-schema.json`](./open-predicate-schema.json)
+
+**OpenPredicate** is stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, which publishes it as an open standard under [MIT](./LICENSE). All identifiers this document defines — schema `$id`s and problem-type URIs — are rooted at `https://openpredicate.tech/`.
 
 This document defines the semantics of the language. The schema defines only its *shape* — a validator can tell you that `{"age": {"$gt": 18}}` is well-formed, but not what it means when `age` is `null`, absent, or a string. Everything a server and a client must agree on beyond well-formedness is specified here.
 
@@ -51,7 +53,7 @@ An implementation SHOULD publish which profiles and fields it accepts. This spec
 
 ```json
 {
-  "queryLanguage": "https://christosgkoros.com/json/query-language/v0.4.0/query-language-schema.json",
+  "queryLanguage": "https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json",
   "profiles": ["core", "strings", "ranges"],
   "fields": {
     "status": {
@@ -471,7 +473,7 @@ A rejected filter MUST be answered with status `400 Bad Request`, and the respon
 | `invalid-operand` | The operator is supported but the operand is not usable: an uncompilable `$regex`, a malformed `$like` escape, a value outside the field's domain. |
 | `query-too-complex` | A limit from §7 was exceeded. |
 
-**The wire format is the API's own.** This specification mandates the conditions, not an envelope: an API that already has an error format SHOULD express them in it rather than carry a second format for one endpoint. Where there is no established format, [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details with media type `application/problem+json` is RECOMMENDED, taking each condition as a `type` URI relative to `https://christosgkoros.com/json/query-language/problems/`. The examples below use it.
+**The wire format is the API's own.** This specification mandates the conditions, not an envelope: an API that already has an error format SHOULD express them in it rather than carry a second format for one endpoint. Where there is no established format, [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details with media type `application/problem+json` is RECOMMENDED, taking each condition as a `type` URI relative to `https://openpredicate.tech/problems/`. The examples below use it.
 
 However it is encoded, the error SHOULD locate the offending clause with a **`pointer`**: an [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901) JSON Pointer into the request body. Without it a client faced with a deeply nested filter has no way to know which clause to fix.
 
@@ -481,7 +483,7 @@ Content-Type: application/problem+json
 ```
 ```json
 {
-  "type": "https://christosgkoros.com/json/query-language/problems/unsupported-operator",
+  "type": "https://openpredicate.tech/problems/unsupported-operator",
   "title": "Unsupported operator",
   "status": 400,
   "detail": "$regex is not in this endpoint's advertised profiles (core, strings).",
@@ -499,7 +501,7 @@ These members restate part of the capability document (§2.2) deliberately: a cl
 
 ```json
 {
-  "type": "https://christosgkoros.com/json/query-language/problems/unknown-field",
+  "type": "https://openpredicate.tech/problems/unknown-field",
   "title": "Unknown field",
   "status": 400,
   "detail": "'birthDate' is not a queryable path on this collection.",
@@ -512,7 +514,7 @@ A server MUST report the first error it finds rather than partially evaluating, 
 
 ## 9. Versioning
 
-The schema's `$id` carries the version: `…/v0.4.0/query-language-schema.json`. Each release is published at its own URL and, once published, is immutable. Consumers pin by `$id`.
+The schema's `$id` carries the version: `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json`. Each release is published at its own URL under that namespace and, once published, is immutable. Consumers pin by `$id`.
 
 - **Patch** — documentation and description text only.
 - **Minor** — new optional operators or profiles. A filter valid under `v0.N` stays valid under `v0.N+1`.

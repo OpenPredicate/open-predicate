@@ -21,7 +21,7 @@ const Ajv2020 = _Ajv2020.default ?? _Ajv2020;
 const addFormats = _addFormats.default ?? _addFormats;
 
 const here = dirname(fileURLToPath(import.meta.url));
-const grammar = JSON.parse(readFileSync(join(here, "..", "..", "query-language-schema.json"), "utf8"));
+const grammar = JSON.parse(readFileSync(join(here, "..", "..", "open-predicate-schema.json"), "utf8"));
 
 const ajv = new Ajv2020({ strict: true, allowUnionTypes: true, allErrors: true });
 addFormats(ajv);
@@ -51,7 +51,7 @@ export function openDatabase() {
   // SQLite has no REGEXP implementation of its own. A JS RegExp is an
   // ECMA-262 engine, which is exactly what SPEC §5.7 asks for — and exactly
   // what §7 warns about, since it backtracks.
-  db.function("jql_regex", { deterministic: true }, (value, pattern, flags) => {
+  db.function("op_regex", { deterministic: true }, (value, pattern, flags) => {
     if (value === null || value === undefined) return null;
     return new RegExp(pattern, flags || undefined).test(String(value)) ? 1 : 0;
   });

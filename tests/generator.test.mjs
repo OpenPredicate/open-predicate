@@ -17,13 +17,13 @@ const addFormats = _addFormats.default ?? _addFormats;
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..");
 
-const grammar = JSON.parse(readFileSync(join(repo, "query-language-schema.json"), "utf8"));
+const grammar = JSON.parse(readFileSync(join(repo, "open-predicate-schema.json"), "utf8"));
 const pet = JSON.parse(readFileSync(join(repo, "examples", "pet.schema.json"), "utf8"));
 
 function makeAjv() {
   const ajv = new Ajv2020({ strict: true, allowUnionTypes: true, allErrors: true });
   addFormats(ajv);
-  ajv.addVocabulary(["x-profiles", "x-jql"]);
+  ajv.addVocabulary(["x-profiles", "x-open-predicate"]);
   return ajv;
 }
 
@@ -92,7 +92,7 @@ const ACCEPTED = [
 for (const [name, filter] of ACCEPTED) {
   test(`accepts: ${name}`, () => {
     assert.ok(validate(filter), errs(validate));
-    // Narrowing, on the cases README shows: each of these is legal JQL too.
+    // Narrowing, on the cases README shows: each of these is legal OpenPredicate too.
     assert.ok(validateGrammar(filter), errs(validateGrammar));
   });
 }
@@ -102,7 +102,7 @@ const SAMPLES = 5000;
 
 test("everything the generated schema accepts, the published grammar also accepts", () => {
   // The soundness property that makes generation safe: narrowing only. A filter
-  // written against a generated schema is always a legal JQL filter, so a
+  // written against a generated schema is always a legal OpenPredicate filter, so a
   // server implementing the published semantics can evaluate it unchanged.
   //
   // The property is quantified over every filter, so it is checked by sampling
@@ -226,7 +226,7 @@ test("no instance-constraining keyword of the published constraint object is dro
 
 const REJECTED = [
   // The three valid-but-wrong filters from README §"Exposing search to an agent".
-  // Each is well-formed JQL — the published grammar accepts all three — and each
+  // Each is well-formed OpenPredicate — the published grammar accepts all three — and each
   // fails as an empty result set rather than an error. Typing them per field is
   // what turns them into a 400.
   ["value outside a closed domain", { status: "Available" }, "anyOf"],
@@ -235,7 +235,7 @@ const REJECTED = [
   // Field-set and operator-set narrowing.
   ["unknown field", { birthDate: "2020-01-01" }, "additionalProperties"],
   ["unknown field nested in $or", { $or: [{ status: "sold" }, { nickname: "Rex" }] }, "additionalProperties"],
-  ["field excluded by x-jql", { internalNotes: { $contains: "vet" } }, "additionalProperties"],
+  ["field excluded by x-open-predicate", { internalNotes: { $contains: "vet" } }, "additionalProperties"],
   ["operator outside the advertised profiles", { name: { $regex: "^Fi" } }, "additionalProperties"],
   ["ordering on an unordered string", { name: { $gt: "M" } }, "additionalProperties"],
   ["pattern matching on a closed domain", { species: { $like: "ca%" } }, "additionalProperties"],
@@ -259,7 +259,7 @@ for (const [name, filter, keyword] of REJECTED) {
 
 test("the rejected filters are rejected by narrowing, not by the base grammar", () => {
   // If the published grammar already caught these, per-field typing would be
-  // buying nothing. Everything here is legal JQL that means the wrong thing.
+  // buying nothing. Everything here is legal OpenPredicate that means the wrong thing.
   const alsoIllegalUnderTheGrammar = REJECTED
     .filter(([, filter]) => !validateGrammar(filter))
     .map(([name]) => name);
@@ -568,9 +568,9 @@ test("a config file is the selection, and an explicit flag still beats it", () =
   // The config file is what a provider checks in beside the resource schema and
   // regenerates from, so its paths are relative to itself rather than to
   // whatever directory the command happened to run in.
-  const dir = mkdtempSync(join(tmpdir(), "jql-config-"));
+  const dir = mkdtempSync(join(tmpdir(), "open-predicate-config-"));
   writeFileSync(join(dir, "pet.schema.json"), readFileSync(join(repo, "examples", "pet.schema.json")));
-  const file = join(dir, "jql.config.json");
+  const file = join(dir, "open-predicate.config.json");
   writeFileSync(file, JSON.stringify({
     resource: "pet.schema.json",
     profiles: ["core", "strings"],
@@ -604,8 +604,8 @@ test("a config file is the selection, and an explicit flag still beats it", () =
 });
 
 test("a misspelled config key is refused rather than ignored", () => {
-  const dir = mkdtempSync(join(tmpdir(), "jql-config-"));
-  const file = join(dir, "jql.config.json");
+  const dir = mkdtempSync(join(tmpdir(), "open-predicate-config-"));
+  const file = join(dir, "open-predicate.config.json");
   writeFileSync(file, JSON.stringify({ profiles: ["core"], dropOperator: ["$exists"] }));
   assert.throws(() => resolveOptions({ config: file }, [], repo), /unknown key "dropOperator"/);
 

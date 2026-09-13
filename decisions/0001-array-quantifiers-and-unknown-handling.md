@@ -122,7 +122,7 @@ Nothing about that form invites confusion with `{"tags": {"$in": […]}}`: one h
 
 Two orthogonality bugs are fixed in the same release.
 
-**`ScalarSet` versus `OperandSet`.** `$in` and `$nin` take `ScalarSet` (`query-language-schema.json:346-354`): scalars and `null` only. `$hasAny`/`$hasAll`/`$hasNone` take `OperandSet` (`:356-363`): any JSON value, plus `$field` references and `$literal` escapes. So `{"tags": {"$hasAny": [{"$field": "x"}]}}` validates today and `{"tags": {"$in": [{"$field": "x"}]}}` does not. The divergence is undocumented, no fixture covers it, and nothing in §5.4 or §5.8 hints at it.
+**`ScalarSet` versus `OperandSet`.** `$in` and `$nin` take `ScalarSet` (`open-predicate-schema.json:346-354`): scalars and `null` only. `$hasAny`/`$hasAll`/`$hasNone` take `OperandSet` (`:356-363`): any JSON value, plus `$field` references and `$literal` escapes. So `{"tags": {"$hasAny": [{"$field": "x"}]}}` validates today and `{"tags": {"$in": [{"$field": "x"}]}}` does not. The divergence is undocumented, no fixture covers it, and nothing in §5.4 or §5.8 hints at it.
 
 Resolution: **unify on `OperandSet`** and delete `ScalarSet`. `$in` becomes "the value is `$eq` to at least one member", with members drawn from the same operand grammar as every other operator — which is what §5.4 already says it means, since `$eq` accepts any JSON value including arrays and objects. Widening `$in` is backward-compatible for filters and closes the asymmetry from the permissive side, so no existing valid filter becomes invalid. `$hasAll` keeps the operand set it already had. Note the consequence to record in §7: the set-length limit row loses `$hasAny`/`$hasNone` and keeps `$in`, `$nin`, `$hasAll`.
 
@@ -161,7 +161,7 @@ Why a modifier and not `$neOrNull`-style sugar:
 - **The grammar already has this shape.** `$flags` is a modifier sibling of `$regex`, wired with `dependentRequired`. `$unknownAs` is idiomatic here in a way a new operator family would not be.
 - **It lowers to one expression**: `coalesce(<pred>, TRUE|FALSE)`. Available on every backend, including the promoted-column path where the type guards otherwise collapse to nothing.
 - **It cannot silently widen a result set**, because it is explicit and opt-in. A clause either says `$unknownAs` or it does not.
-- **It does not collide with an existing documented equivalence.** `query-language-schema.json:213` already documents `$isNull: false` as equivalent to `$ne: null`; a null-inclusive `$ne` variant would contradict that, and a modifier does not.
+- **It does not collide with an existing documented equivalence.** `open-predicate-schema.json:213` already documents `$isNull: false` as equivalent to `$ne: null`; a null-inclusive `$ne` variant would contradict that, and a modifier does not.
 
 Two scope rules are normative.
 

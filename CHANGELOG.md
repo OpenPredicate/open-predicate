@@ -5,12 +5,59 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — with the pre-1.0 caveat that a
 minor release may break compatibility, in which case the break is spelled out below.
 
-## [Unreleased]
+## [0.6.0] — 2026-09-13
+
+**A naming release.** No change to the grammar or to the semantics of evaluation:
+`open-predicate-schema.json` is byte-identical to 0.5.0 apart from three lines — its `$id`, its
+`title` and its `$comment` — and the `$id` still names `v0.4.0`, because the `$id` version tracks
+the grammar and the grammar did not move. Consumers pinning that `$id` have only the new namespace
+to re-point at.
+
+### Changed
+
+- **The name is settled, and the project has a dedicated organisation.** **OpenPredicate** is
+  stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, whose purpose is to
+  carry the grammar to an open standard and push for its adoption. This is the single pass the
+  README promised: the repository, both package names, the schema `$id`, the problem-type URIs,
+  the CLI and the vendor keyword all derive from the one namespace, so nothing is left
+  half-named.
+
+  | | Name |
+  | --- | --- |
+  | Repository | [`OpenPredicate/open-predicate`](https://github.com/OpenPredicate/open-predicate) |
+  | Schema file | `open-predicate-schema.json` |
+  | Schema `$id` | `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` |
+  | Problem types | `https://openpredicate.tech/problems/…` |
+  | npm package | `open-predicate` |
+  | GitHub Packages | `@openpredicate/open-predicate` |
+  | CLI | `open-predicate-generate` |
+  | Vendor keyword | `x-open-predicate` |
+  | Generator config | `open-predicate.config.json` |
+
+  **Migration.** Mechanical, and only for identifiers — no filter valid before this release becomes
+  invalid, because the grammar and the evaluation semantics did not move. In a resource schema, the
+  vendor keyword the generator reads is `x-open-predicate`; any other spelling is silently ignored,
+  so a field you meant to exclude would become queryable. Point any `$ref` or pinned `$id` at the
+  `$id` above, and any RFC 9457 `type` matching at the problem base above. A generator config file
+  is `open-predicate.config.json`, or pass it explicitly with `--config`. The `$id` still names
+  `v0.4.0` — the version tracks the grammar, which is unchanged; only the namespace it sits under
+  is new. Nothing was ever served or published under any other namespace or package name, so no
+  working deployment can be pinned elsewhere.
+
+  **On the entries below.** Past releases are written up in these names, so the whole document
+  reads in one vocabulary. Released artefacts are unaffected — this names the project, not history.
+
+### Added
+
+- **Brand assets, in [`assets/`](./assets/).** The `{ > }` mark — JSON braces around a comparison —
+  as SVG and as raster at three sizes, plus a wordmark for light and dark backgrounds.
+  [`assets/README.md`](./assets/README.md) states the palette and the usage rules. The README now
+  opens with the mark. MIT-licensed with the rest of the repository.
 
 ## [0.5.0] — 2026-09-13
 
 **A tooling release.** No change to the grammar or to the semantics of evaluation:
-`query-language-schema.json` is byte-identical to 0.4.0 apart from its root `description`, and its
+`open-predicate-schema.json` is byte-identical to 0.4.0 apart from its root `description`, and its
 `$id` still names `v0.4.0`, because the `$id` version tracks the grammar and the grammar did not
 move. Consumers pinning that `$id` have nothing to do.
 
@@ -18,7 +65,7 @@ What did move is the generator, which is now the thing an API provider uses when
 search: point it at the resource schema, state the slice of the language you can actually serve,
 and get back a filter schema that permits exactly that slice plus a capability document that
 describes it honestly. It also travels with the package for the first time, as a `bin` named
-`jql-generate`, rather than being a file inside a repository nobody installs.
+`open-predicate-generate`, rather than being a file inside a repository nobody installs.
 
 [SPEC.md](./SPEC.md) gains two clarifications in service of that, both about what an
 implementation may *claim* rather than about what a filter means:
@@ -29,7 +76,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
 ### Added
 
 - **The generator selects capabilities, not just profiles**
-  ([#11](https://github.com/christosgkoros/json-query-language/issues/11)). Profiles are the unit
+  ([#11](https://github.com/OpenPredicate/open-predicate/issues/11)). Profiles are the unit
   a server advertises, but three shapes do not fit inside one: a backend with `LIKE` and no
   `POSITION` supports `$like` and not `$contains`; a key-value store cannot implement `$exists` at
   all; a provider compiling to a flat conjunctive index wants one AND level and no shorthand. Six
@@ -38,7 +85,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
   is declined is absent from the generated schema, so a client learns it from validation rather
   than from an `unsupported-operator` at runtime. Defaults are unchanged: with none of them given
   the output is byte-identical to before.
-- **`--config <file>`, and `examples/pet.jql.config.json`.** The capability selection is a
+- **`--config <file>`, and `examples/pet.open-predicate.config.json`.** The capability selection is a
   decision about the endpoint, not a shell invocation, so it goes in a JSON file checked in beside
   the resource schema and regenerated from. Its keys are the JS API's option names plus `resource`,
   `out` and `capabilities`; relative paths in it resolve against its own directory, an explicit
@@ -57,7 +104,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
   `--max-filter-depth` is given and `maxDepth` is not, the enforced bound is published.
 - **The generator is part of the package.** `tools/` was not in `package.json` `files` and there
   was no `bin` entry, so the tool the README points readers at could not travel with the package
-  at all. It is now a `bin` named `jql-generate`, with `json-query-language/generate` exporting
+  at all. It is now a `bin` named `open-predicate-generate`, with `open-predicate/generate` exporting
   `generateFilterSchema` for programmatic use. This repository still publishes no artifacts
   ([RELEASING.md](./RELEASING.md)), so the command is reachable from a clone or a git install and
   not from npmjs; what changed is that it is ready to be, and `npm pack` now contains it.
@@ -126,11 +173,11 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
   left `$flags` in `properties` with a rule naming a member `additionalProperties: false` forbids
   — present in the schema and impossible to use. The closure is read off
   `$defs/ConstraintObject`, so a dependency added later is handled by construction.
-- **Generated filter schemas were not a narrowing** ([#8](https://github.com/christosgkoros/json-query-language/issues/8)).
+- **Generated filter schemas were not a narrowing** ([#8](https://github.com/OpenPredicate/open-predicate/issues/8)).
   `tools/generate-filter-schema.mjs` carried the published constraint object's
   `dependentRequired` rule but not its `dependentSchemas` one, so `{"microchip": {"$unknownAs":
   false}}` — a modifier with nothing to modify — passed a generated schema while
-  `query-language-schema.json` rejected it. A server following the documented path (generated
+  `open-predicate-schema.json` rejected it. A server following the documented path (generated
   schema as the tool's `inputSchema`, published semantics behind it) then had to evaluate a filter
   with no predicate in it; the SQL compiler in `experiments/filter-to-sql` emitted
   `coalesce((), FALSE)` and the database answered with a syntax error. The generator now reads
@@ -145,7 +192,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
   over a hand-written list of fifteen filters, which can only re-check the leaks someone already
   thought of — the keyword above was dropped for as long as the list existed. It now samples
   filters out of each generated schema's own vocabulary (`tests/fuzz.mjs`, seeded, deterministic)
-  and asserts that every one the generated schema accepts is valid JQL, over three generated
+  and asserts that every one the generated schema accepts is valid OpenPredicate, over three generated
   schemas; the run is checked for not being vacuous, in that it must accept a fraction of its
   samples and must reach every operator the schema offers. A second test pins what the generator
   does with each instance-constraining keyword of `$defs/ConstraintObject`, so adding one there
@@ -162,7 +209,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
 
 ## [0.4.0] — 2026-09-07
 
-**Breaking.** The `$id` is now `…/v0.4.0/query-language-schema.json`. This release resolves the
+**Breaking.** The `$id` is now `…/v0.4.0/open-predicate-schema.json`. This release resolves the
 three operator overlaps that an external review and this repository's own
 `experiments/filter-to-sql` flagged independently; the design and the evidence are in
 [`decisions/0001-array-quantifiers-and-unknown-handling.md`](./decisions/0001-array-quantifiers-and-unknown-handling.md).
@@ -258,16 +305,15 @@ quantifier. Operator count is unchanged at 34.
 
 ## [0.3.1] — 2026-09-04
 
-No change to the schema, the grammar or the semantics. `query-language-schema.json` is
+No change to the schema, the grammar or the semantics. `open-predicate-schema.json` is
 byte-identical to 0.3.0 and its `$id` still names `v0.3.0`, because the `$id` version tracks the
 grammar and the grammar did not move. Consumers pinning that `$id` have nothing to do.
 
 ### Removed
 
 - **Publishing.** The release workflow no longer ships to npmjs.com or GitHub Packages. Neither
-  registry ever received a copy, and while the name is a working title neither should: publishing
-  under a placeholder claims the name, and npm blocks a name from reuse permanently once it has
-  been published and unpublished. `.github/workflows/release.yml` now only verifies a release —
+  registry ever received a copy, and neither should before the name is final: publishing claims a
+  name, and npm blocks a name from reuse permanently once it has been published and unpublished. `.github/workflows/release.yml` now only verifies a release —
   the test suite, and the tag-against-`package.json` check — and uploads nothing. The
   `NPM_TOKEN` secret and `.github/scripts/version-published.sh` are deleted with it.
   [RELEASING.md](./RELEASING.md#turning-publishing-back-on) keeps what the jobs needed, so they
@@ -276,7 +322,7 @@ grammar and the grammar did not move. Consumers pinning that `$id` have nothing 
 ### Changed
 
 - **README no longer offers an install that does not exist.** The Quickstart opened with
-  `npm install --save-dev json-query-language`, which the README's own *Status* table already
+  `npm install --save-dev open-predicate`, which the README's own *Status* table already
   contradicted two screens further down. It now vendors the file by `curl`, which is the only
   way to obtain the schema and always was.
 - **[RELEASING.md](./RELEASING.md) documents the process that exists** — a tag and a GitHub
@@ -286,7 +332,7 @@ grammar and the grammar did not move. Consumers pinning that `$id` have nothing 
 
 Guidance for adopters exposing a search endpoint to an LLM agent, the tooling that acts on it,
 and an honest statement of how finished this is. No grammar change: every filter valid under
-v0.2.0 remains valid, and the only edits to `query-language-schema.json` are two `description`
+v0.2.0 remains valid, and the only edits to `open-predicate-schema.json` are two `description`
 annotations and its version strings.
 
 ### Added
@@ -324,7 +370,7 @@ annotations and its version strings.
 - **`examples/pet.schema.json`** with its generated `pet.filter.json` and `pet.capabilities.json`
   committed beside it, and `npm run generate:example` to refresh them. A test fails if they drift.
 - **README §*Generating a per-resource filter schema*** — what the generator decides and why, and
-  the `x-jql` property annotations that override it.
+  the `x-open-predicate` property annotations that override it.
 
 ### Changed
 
@@ -337,12 +383,12 @@ annotations and its version strings.
   array membership, naming `$hasAny`/`$hasNone` as the element operators. `$contains` already
   warned about the same crossover; these two did not, and they are the operators a client
   carrying MongoDB habits reaches for first.
-- **`$id` is now `…/v0.3.0/query-language-schema.json`.** Consumers pin by `$id`, so the version
+- **`$id` is now `…/v0.3.0/open-predicate-schema.json`.** Consumers pin by `$id`, so the version
   in the path moves with the release. `SPEC.md`, the OpenAPI examples and the generated
   capability document were all still naming v0.2.0; they now agree.
-- **README §*Status* states that this is a work in progress, name included.** *JSON Query
-  Language* is a working title, and every identifier downstream of it — both package names, the
-  `$id`, the URLs in the integration examples — is a placeholder, several of which do not
+- **README §*Status* states that this is a work in progress, name included.** The name is not
+  final, and every identifier downstream of it — both package names, the `$id`, the URLs in the
+  integration examples — is a placeholder, several of which do not
   resolve. Getting them right is deliberately deferred until the name is settled, because a
   rename moves all of them at once. A notice at the top of the README says the same thing before
   a reader reaches an install command that will not work.
@@ -386,7 +432,7 @@ set. Filters written against v0.1.0 still parse apart from the `$isnull` rename.
 
 | v0.1.0 | v0.2.0 | Note |
 | --- | --- | --- |
-| `"id": "…/v0.1.0"` | `"$id": "…/v0.2.0/query-language-schema.json"` | Correct keyword, versioned path |
+| `"id": "…/v0.1.0"` | `"$id": "…/v0.2.0/open-predicate-schema.json"` | Correct keyword, versioned path |
 | `#/components/schemas/Query` | `#/$defs/Filter` | Or `$ref` the file itself |
 | `#/components/schemas/Condition` | *(removed)* | Folded into `#/$defs/Filter` |
 | `#/components/schemas/equalCondition`, `notEqualCondition`, `inArrayCondition`, `notInArrayCondition`, `likeCondition`, `notLikeCondition`, `rangeCondition`, `isNullCondition` | *(removed)* | Folded into `#/$defs/ConstraintObject` |
@@ -434,9 +480,10 @@ Initial research draft: `$and`, `$or`, `$not` over eight leaf condition types
 (`$eq`, `$ne`, `$in`, `$nin`, `$like`, `$nlike`, `$gt`/`$gte`/`$lt`/`$lte`/`$between`, `$isnull`),
 laid out as an OpenAPI `components.schemas` fragment.
 
-[0.5.0]: https://github.com/christosgkoros/json-query-language/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/christosgkoros/json-query-language/compare/v0.3.1...v0.4.0
-[0.3.1]: https://github.com/christosgkoros/json-query-language/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/christosgkoros/json-query-language/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/christosgkoros/json-query-language/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/christosgkoros/json-query-language/releases/tag/v0.1.0
+[0.6.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/OpenPredicate/open-predicate/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/OpenPredicate/open-predicate/releases/tag/v0.1.0

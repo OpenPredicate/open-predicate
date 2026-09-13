@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * server.mjs — an MCP server whose search tool takes a JSON Query Language
+ * server.mjs — an MCP server whose search tool takes an OpenPredicate
  * filter as its input schema.
  *
  * The point of the example is one line of the tool definition:

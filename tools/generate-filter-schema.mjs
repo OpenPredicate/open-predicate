@@ -3,7 +3,7 @@
  * generate-filter-schema.mjs — derive a per-resource filter schema from a
  * resource's JSON Schema.
  *
- * The published grammar (query-language-schema.json) shares one `Constraint`
+ * The published grammar (open-predicate-schema.json) shares one `Constraint`
  * definition across every field, so it can say that `{"status": "Available"}`
  * is well-formed but not that "Available" is outside `status`'s domain. That
  * gap is why SPEC.md §2.2 exists: the domains have to be published somewhere,
@@ -20,10 +20,10 @@
  * than restated here, so the prose an agent reads stays in one place.
  *
  * Usage:
- *   jql-generate <resource-schema.json> [options]
- *   jql-generate --config <jql.config.json>
+ *   open-predicate-generate <resource-schema.json> [options]
+ *   open-predicate-generate --config <open-predicate.config.json>
  *
- * `jql-generate` is the installed name; from a clone it is
+ * `open-predicate-generate` is the installed name; from a clone it is
  * `node tools/generate-filter-schema.mjs`, with the same arguments.
  *
  * What the schema describes:
@@ -53,7 +53,7 @@
  *                           the self-evident ones keep only a title.
  *   --out <file>            write the schema here instead of stdout
  *   --capabilities <file>   also write a SPEC.md §2.2 capability document
- *   --grammar <file>        path to query-language-schema.json
+ *   --grammar <file>        path to open-predicate-schema.json
  *   --config <file>         read these options from JSON, using the camelCase
  *                           names of the JS API plus "resource", "out" and
  *                           "capabilities". Relative paths in it resolve
@@ -62,9 +62,9 @@
  *   --quiet                 suppress warnings on stderr
  *
  * A property may also opt out or override in the resource schema itself:
- *   "x-jql": false                        — not queryable
- *   "x-jql": { "queryable": false }       — same
- *   "x-jql": { "operators": ["$eq"] }     — exactly these operators
+ *   "x-open-predicate": false                        — not queryable
+ *   "x-open-predicate": { "queryable": false }       — same
+ *   "x-open-predicate": { "operators": ["$eq"] }     — exactly these operators
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -73,7 +73,7 @@ import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_GRAMMAR = join(here, "..", "query-language-schema.json");
+const DEFAULT_GRAMMAR = join(here, "..", "open-predicate-schema.json");
 const DEFAULT_PROFILES = ["core", "strings", "ranges", "collections"];
 /** SPEC §7's RECOMMENDED defaults, published through the capability document (§2.2). */
 const DEFAULT_LIMITS = { maxDepth: 10, maxClauses: 100, maxSetLength: 1000 };
@@ -242,7 +242,7 @@ function collectFields(node, ctx, state) {
       const prop = flatten(rawProp, ctx.deref, branchTrail);
       if (!prop || typeof prop !== "object") continue;
 
-      const ext = rawProp["x-jql"] ?? prop["x-jql"];
+      const ext = rawProp["x-open-predicate"] ?? prop["x-open-predicate"];
       if (ext === false || ext?.queryable === false) continue;
 
       const path = prefix + escapeKey(name);
@@ -252,7 +252,7 @@ function collectFields(node, ctx, state) {
       const info = classify(prop);
 
       if (info.kind === "unknown") {
-        ctx.warn(`skipped "${path}": no discoverable type. Add "type", or "x-jql": {"operators": [...]}.`);
+        ctx.warn(`skipped "${path}": no discoverable type. Add "type", or "x-open-predicate": {"operators": [...]}.`);
         continue;
       }
 
@@ -761,7 +761,7 @@ export function generateFilterSchema(resource, options = {}) {
     ...(options.id ? { $id: options.id } : {}),
     title,
     description: [
-      `A filter over ${ctx.resource.title ?? "this resource"}, in the JSON Query Language.`,
+      `A filter over ${ctx.resource.title ?? "this resource"}, in OpenPredicate.`,
       ...SILENT_RULES.filter((rule) => ctx.opts.shorthand || rule !== SHORTHAND_RULE),
     ].join(" "),
     $comment:

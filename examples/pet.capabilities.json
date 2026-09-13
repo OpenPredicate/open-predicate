@@ -1,5 +1,5 @@
 {
-  "queryLanguage": "https://christosgkoros.com/json/query-language/v0.4.0/query-language-schema.json",
+  "queryLanguage": "https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json",
   "filterSchema": "https://api.example.com/schemas/pet.filter.json",
   "profiles": [
     "core",

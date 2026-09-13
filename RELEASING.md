@@ -2,7 +2,7 @@
 
 **This repository publishes no artifacts.** A release here is a git tag and a GitHub Release — notes and a source snapshot, nothing more. Neither npmjs.com nor GitHub Packages receives anything, and the schema is not fetchable from any URL other than raw GitHub.
 
-That is deliberate while the name is unsettled: publishing under a working title would burn the names, and npm blocks a name from reuse permanently once it has been published and unpublished. See [Status](./README.md#status).
+That is deliberate while the project is pre-1.0. The names are not the reason — `open-predicate` and `@openpredicate/open-predicate` are settled, so publishing would no longer burn anything. What holds it back is that npm blocks a name from reuse permanently once it has been published and unpublished, and a pre-1.0 grammar that may still break is a poor thing to make permanent. See [Status](./README.md#status).
 
 [`.github/workflows/release.yml`](./.github/workflows/release.yml) therefore only *verifies* a release: it runs the test suite and asserts the release tag matches `package.json`. Nothing it does is irreversible.
 
@@ -15,12 +15,14 @@ That is deliberate while the name is unsettled: publishing under a working title
 
 The workflow runs tests and checks the tag against `package.json`; a mismatch fails the run. You can also run it by hand from Actions → *Release* → **Run workflow**, which skips the tag check and just runs the suite.
 
+Serving the schema from its `$id` namespace, `https://openpredicate.tech/schema/`, is the other half of this and is not wired up either. Until it is, the `$id` is an identifier rather than a location — which JSON Schema permits, and which every example in the repository works around by `$ref`-ing the local copy.
+
 ## Consuming the schema meanwhile
 
 Vendor the file. It is self-contained and has no runtime dependencies:
 
 ```bash
-curl -O https://raw.githubusercontent.com/christosgkoros/json-query-language/main/query-language-schema.json
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
 ```
 
 Pin a tag rather than `main` if you want a stable copy — swap `main` for `v0.3.0` in that URL.
@@ -39,10 +41,10 @@ What was there, and what it will need again:
 
 | Registry | Name | Auth |
 | --- | --- | --- |
-| [npmjs.com](https://www.npmjs.com/) | `json-query-language` | `NPM_TOKEN` secret |
-| GitHub Packages | `@christosgkoros/json-query-language` | `GITHUB_TOKEN`, automatic |
+| [npmjs.com](https://www.npmjs.com/) | `open-predicate` | `NPM_TOKEN` secret |
+| GitHub Packages | `@openpredicate/open-predicate` | `GITHUB_TOKEN`, automatic |
 
-The names differ because GitHub Packages accepts **only** scoped names, and the scope must be the repository owner. npmjs.com would carry the plain name, since that is what people search for; the workflow rewrote `package.json` in the GitHub Packages job only, leaving the tarball otherwise byte-identical.
+The names differ because GitHub Packages accepts **only** scoped names, and the scope must be the repository owner — now the `OpenPredicate` organisation, hence `@openpredicate`. npmjs.com would carry the plain name, since that is what people search for; the workflow rewrote `package.json` in the GitHub Packages job only, leaving the tarball otherwise byte-identical.
 
 Notes worth keeping, since they cost time to work out:
 
@@ -52,4 +54,4 @@ Notes worth keeping, since they cost time to work out:
 - **`npm publish --dry-run` does not authenticate,** so it cannot tell you the token is wrong. That is why each publish job ran `npm whoami` first — the only step in a rehearsal that proved the credential worked.
 - **`environment: release` is decoration until you configure it.** Referencing an environment that does not exist does not block the run; GitHub creates it with no protection rules. Add yourself as a required reviewer under *Settings → Environments → release* to make it a real gate.
 - **Each job checked whether its version was already published and skipped if so,** which is what made re-running a partially-failed release safe when one registry succeeded and the other did not.
-- **Consumers of the GitHub Packages copy need auth even though it is public** — an `.npmrc` with `@christosgkoros:registry=https://npm.pkg.github.com` and a token. The npmjs copy needs none, so it is the easier path to document.
+- **Consumers of the GitHub Packages copy need auth even though it is public** — an `.npmrc` with `@openpredicate:registry=https://npm.pkg.github.com` and a token. The npmjs copy needs none, so it is the easier path to document.

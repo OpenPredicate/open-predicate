@@ -1,5 +1,5 @@
 /**
- * compile.mjs — compile a JSON Query Language filter into a SQL statement.
+ * compile.mjs — compile an OpenPredicate filter into a SQL statement.
  *
  * EXPERIMENT. Not part of the published artifact; see ./README.md for what
  * this was built to measure and what it found.
@@ -13,7 +13,7 @@
  *
  * Two assumptions, both load-bearing:
  *
- *   1. The input is already valid against query-language-schema.json. The
+ *   1. The input is already valid against open-predicate-schema.json. The
  *      compiler does no structural validation and has no recovery path — a
  *      malformed filter is a caller bug, not a branch here. (run.mjs validates
  *      with ajv first, which is how a server would do it.)
@@ -35,14 +35,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /** The profile map is published in the grammar; read it rather than restate it. */
 const GRAMMAR = JSON.parse(
-  readFileSync(join(here, "..", "..", "query-language-schema.json"), "utf8"),
+  readFileSync(join(here, "..", "..", "open-predicate-schema.json"), "utf8"),
 );
 const OPERATOR_PROFILE = new Map();
 for (const [profile, operators] of Object.entries(GRAMMAR["x-profiles"])) {
   for (const op of operators) OPERATOR_PROFILE.set(op, profile);
 }
 
-export const PROBLEM_BASE = "https://christosgkoros.com/json/query-language/problems/";
+export const PROBLEM_BASE = "https://openpredicate.tech/problems/";
 
 const PROBLEM_TITLES = {
   "malformed-query": "Malformed query",
@@ -230,10 +230,10 @@ const DIALECTS = {
     // SQLite's LIKE folds ASCII case unless case_sensitive_like is ON; the
     // harness sets it, and $ilike then has to fold explicitly.
     ilike: (valueSql, patternPh) => `lower(${valueSql}) LIKE lower(${patternPh}) ESCAPE '\\'`,
-    // No built-in REGEXP: harness.mjs registers jql_regex(), which is a real
+    // No built-in REGEXP: harness.mjs registers op_regex(), which is a real
     // ECMA-262 engine and therefore the only fully conforming $regex here.
-    regex: (valueSql, patternPh, flagsPh) => `jql_regex(${valueSql}, ${patternPh}, ${flagsPh()})`,
-    requires: ["PRAGMA case_sensitive_like = ON", "jql_regex(value, pattern, flags) UDF"],
+    regex: (valueSql, patternPh, flagsPh) => `op_regex(${valueSql}, ${patternPh}, ${flagsPh()})`,
+    requires: ["PRAGMA case_sensitive_like = ON", "op_regex(value, pattern, flags) UDF"],
   },
 
   postgres: {

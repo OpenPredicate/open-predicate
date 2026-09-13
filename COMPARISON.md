@@ -1,4 +1,4 @@
-# JSON Query Language and GraphQL
+# OpenPredicate and GraphQL
 
 The question arrives in two forms. *Why not just use GraphQL?* — asked by someone choosing
 between them. And *could this become a JSON-Schema-native alternative to GraphQL?* — asked by
@@ -54,7 +54,7 @@ query {
 }
 ```
 
-**JSON Query Language** — the filter is standard and schema-validated; projection, ordering and
+**OpenPredicate** — the filter is standard and schema-validated; projection, ordering and
 paging belong to the enclosing body, where each API defines them:
 
 ```http

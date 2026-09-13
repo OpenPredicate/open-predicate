@@ -81,7 +81,7 @@
     "internalNotes": {
       "type": "string",
       "description": "Staff-only. Not exposed to search.",
-      "x-jql": false
+      "x-open-predicate": false
     }
   }
 }

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 200" width="840" height="200" role="img" aria-label="OpenPredicate">
+  <title>OpenPredicate</title>
+  <g transform="translate(0 20) scale(0.625)">
+    <rect width="256" height="256" rx="56" fill="#0F172A"/>
+    <g fill="none" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="#38BDF8" d="M92 48C74 48 74 60 74 84c0 24-12 32-22 44 10 12 22 20 22 44 0 24 0 36 18 36"/>
+      <path stroke="#38BDF8" d="M164 48c18 0 18 12 18 36 0 24 12 32 22 44-10 12-22 20-22 44 0 24 0 36-18 36"/>
+      <path stroke="#F8FAFC" d="M115 96l34 32-34 32"/>
+    </g>
+  </g>
+  <g font-family="ui-sans-serif, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="600">
+    <text x="200" y="132" textLength="192" lengthAdjust="spacingAndGlyphs" fill="#0F172A">Open</text>
+    <text x="396" y="132" textLength="404" lengthAdjust="spacingAndGlyphs" fill="#0284C7">Predicate</text>
+  </g>
+</svg>
