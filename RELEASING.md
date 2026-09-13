@@ -1,57 +1,68 @@
 # Releasing
 
-**This repository publishes no artifacts.** A release here is a git tag and a GitHub Release — notes and a source snapshot, nothing more. Neither npmjs.com nor GitHub Packages receives anything, and the schema is not fetchable from any URL other than raw GitHub.
+A release is a git tag, a GitHub Release, and a package on two registries. Publishing a GitHub Release is the trigger: [`.github/workflows/release.yml`](./.github/workflows/release.yml) runs the test suite, checks the tag against `package.json`, and ships the same commit to both.
 
-That is deliberate while the project is pre-1.0. The names are not the reason — `open-predicate` and `@openpredicate/open-predicate` are settled, so publishing would no longer burn anything. What holds it back is that npm blocks a name from reuse permanently once it has been published and unpublished, and a pre-1.0 grammar that may still break is a poor thing to make permanent. See [Status](./README.md#status).
+| Registry | Name | Auth | Install needs a token? |
+| --- | --- | --- | --- |
+| [npmjs.com](https://www.npmjs.com/package/@open-predicate/open-predicate) | `@open-predicate/open-predicate` | OIDC trusted publishing — **no secret** | No |
+| GitHub Packages | `@openpredicate/open-predicate` | `GITHUB_TOKEN`, minted per run | Yes |
 
-[`.github/workflows/release.yml`](./.github/workflows/release.yml) therefore only *verifies* a release: it runs the test suite and asserts the release tag matches `package.json`. Nothing it does is irreversible.
+The two names differ because GitHub Packages accepts only scoped names and the scope must be the repository owner — the `OpenPredicate` organisation, hence `@openpredicate`, lowercased because npm rejects uppercase in a package name. npmjs.com carries the `@open-predicate` scope, which is the npm organisation. Only the `name` field differs; the workflow rewrites it in the GitHub Packages job and the tarball is otherwise identical.
+
+**npmjs.com is the copy to document.** It needs no credential to install. The GitHub Packages copy needs an `.npmrc` with `@openpredicate:registry=https://npm.pkg.github.com` and a token even though the package is public.
 
 ## Cutting a release
 
-1. Bump `version` in `package.json`.
-2. If the schema's grammar changed, bump the version in the schema's `$id` too, and add a `CHANGELOG.md` entry. The `$id` is what consumers pin, so it is the version that actually matters to them.
-3. Commit, then tag: `git tag -a v0.3.0 -m "v0.3.0" && git push --follow-tags`.
-4. On GitHub, draft a Release against that tag, paste the changelog entry, and **Publish release**.
+1. Bump `version` in `package.json` (and `package-lock.json` — `npm install` does it).
+2. If the schema's grammar changed, bump the version in the schema's `$id` too. The `$id` is what consumers pin, so it is the version that actually matters to them.
+3. Add the `CHANGELOG.md` entry and its compare link at the bottom of the file.
+4. Commit, then tag: `git tag -a v0.6.0 -m "v0.6.0" && git push --follow-tags`.
+5. On GitHub, draft a Release against that tag, paste the changelog entry, and **Publish release**.
 
-The workflow runs tests and checks the tag against `package.json`; a mismatch fails the run. You can also run it by hand from Actions → *Release* → **Run workflow**, which skips the tag check and just runs the suite.
+To rehearse, run it by hand from Actions → *Release* → **Run workflow**. It defaults to a dry run, which exercises packaging and the already-published guard without uploading — but see the note below on what a rehearsal cannot prove.
 
-Serving the schema from its `$id` namespace, `https://openpredicate.tech/schema/`, is the other half of this and is not wired up either. Until it is, the `$id` is an identifier rather than a location — which JSON Schema permits, and which every example in the repository works around by `$ref`-ing the local copy.
+Each publish job checks whether its version already exists and skips if so, so re-running a partially-failed release is safe when one registry succeeded and the other did not.
 
-## Consuming the schema meanwhile
+## Trusted publishing, and the one-time bootstrap
 
-Vendor the file. It is self-contained and has no runtime dependencies:
+npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and npm exchanges that token for a short-lived registry credential. There is no `NPM_TOKEN` in this repository and nothing to rotate. Provenance is attached automatically, so the tarball links back to the workflow run and the commit that built it.
+
+**OIDC cannot perform a package's first publish.** npm requires the package to exist before a trusted publisher can be attached to it, so the very first version has to go up under a personal login. That bootstrap is a one-off:
+
+```bash
+npm login                                    # the account must be a member of the open-predicate org
+npm publish --access public                  # claims @open-predicate/open-predicate
+
+npm trust github \
+  --allow-publish \
+  --repository OpenPredicate/open-predicate \
+  --workflow release.yml
+npm trust list                               # confirm it stuck
+```
+
+`npm trust github` is the CLI equivalent of npmjs.com → the package → *Settings* → **Trusted Publisher** → *GitHub Actions*. Either way the trust is pinned to the repository **and the workflow filename** — renaming `release.yml` breaks publishing until the trusted publisher is updated to match.
+
+Afterwards, set the package's publishing access to **Require two-factor authentication and disallow tokens**. That closes off token auth without affecting OIDC, which is the point of moving to it.
+
+## Notes worth keeping
+
+These cost time to work out.
+
+- **The trust is per-package, not per-org.** A second package under `@open-predicate` needs its own `npm trust github`, and its own bootstrap publish.
+- **`npm trust` needs account-level 2FA** and will not accept a granular token with *Bypass 2FA*, or legacy basic auth.
+- **A rehearsal cannot prove npmjs auth works.** `npm publish --dry-run` does not authenticate, and the OIDC credential is only minted by a real publish — so unlike the old token-based job, there is no `npm whoami` that proves the credential ahead of time. The GitHub Packages job still runs one, because that half is still token-authenticated.
+- **Trusted publishing needs npm >= 11.5.1**, which is why the `npmjs` job installs `npm@latest` rather than trusting the runner image.
+- **`environment: release` is decoration until you configure it.** Referencing an environment that does not exist does not block the run; GitHub creates it with no protection rules. Add yourself as a required reviewer under *Settings → Environments → release* to make it a real gate. If you also name that environment in the trusted publisher config, the two must agree or publishing fails.
+- **npm blocks a name from reuse permanently once it has been published and unpublished.** The bootstrap claims `@open-predicate/open-predicate` for good. That was the reason publishing stayed off while the name was a working title; the name is settled now, so the trade is worth making.
+
+## Serving the schema from its `$id`
+
+Serving `https://openpredicate.tech/schema/` is the other half of this and is not wired up. Until it is, the `$id` is an identifier rather than a location — which JSON Schema permits, and which every example in the repository works around by `$ref`-ing the local copy.
+
+Meanwhile the schema can also be vendored directly. It is self-contained and has no runtime dependencies:
 
 ```bash
 curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
 ```
 
-Pin a tag rather than `main` if you want a stable copy — swap `main` for `v0.3.0` in that URL.
-
-## Turning publishing back on
-
-The publish jobs existed and worked; they were removed rather than rewritten, so restore them from history instead of writing new ones:
-
-```bash
-git log --oneline -- .github/workflows/release.yml
-git show <commit>^:.github/workflows/release.yml
-git show <commit>^:.github/scripts/version-published.sh
-```
-
-What was there, and what it will need again:
-
-| Registry | Name | Auth |
-| --- | --- | --- |
-| [npmjs.com](https://www.npmjs.com/) | `open-predicate` | `NPM_TOKEN` secret |
-| GitHub Packages | `@openpredicate/open-predicate` | `GITHUB_TOKEN`, automatic |
-
-The names differ because GitHub Packages accepts **only** scoped names, and the scope must be the repository owner — now the `OpenPredicate` organisation, hence `@openpredicate`. npmjs.com would carry the plain name, since that is what people search for; the workflow rewrote `package.json` in the GitHub Packages job only, leaving the tarball otherwise byte-identical.
-
-Notes worth keeping, since they cost time to work out:
-
-- **The first publish needs a token, not OIDC.** npm's trusted publishing cannot perform a package's first publish — npm requires the package to exist before a trusted publisher can be attached. Migrate to OIDC after release #1 (npmjs.com → the package → *Settings* → **Trusted Publisher** → *GitHub Actions*, naming `release.yml`), then delete the secret.
-- **A granular token cannot be scoped to a package that does not exist.** Since November 2025 npm issues only granular tokens, so the first one must be created with *Packages and scopes → All packages*, read and write, with a short expiry.
-- **If the account requires 2FA for write actions, the token needs *Bypass 2FA*,** or publishing fails with `EOTP`.
-- **`npm publish --dry-run` does not authenticate,** so it cannot tell you the token is wrong. That is why each publish job ran `npm whoami` first — the only step in a rehearsal that proved the credential worked.
-- **`environment: release` is decoration until you configure it.** Referencing an environment that does not exist does not block the run; GitHub creates it with no protection rules. Add yourself as a required reviewer under *Settings → Environments → release* to make it a real gate.
-- **Each job checked whether its version was already published and skipped if so,** which is what made re-running a partially-failed release safe when one registry succeeded and the other did not.
-- **Consumers of the GitHub Packages copy need auth even though it is public** — an `.npmrc` with `@openpredicate:registry=https://npm.pkg.github.com` and a token. The npmjs copy needs none, so it is the easier path to document.
+Pin a tag rather than `main` if you want a stable copy — swap `main` for `v0.6.0` in that URL.

@@ -5,6 +5,43 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — with the pre-1.0 caveat that a
 minor release may break compatibility, in which case the break is spelled out below.
 
+## [Unreleased]
+
+### Changed
+
+- **The npm package is scoped: `@open-predicate/open-predicate`.** 0.6.0 named it `open-predicate`,
+  unscoped; it now sits under the `open-predicate` organisation on npmjs.com, which is where the
+  project's packages will live. Nothing was ever published under the unscoped name, so there is no
+  version to migrate from and no redirect to leave behind. GitHub Packages is unaffected — it still
+  carries `@openpredicate/open-predicate`, because that scope has to match the repository owner.
+
+  One consequence worth knowing: `npx` resolves a *package* name, so the generator is now
+  `npx @open-predicate/open-predicate` rather than `npx open-predicate-generate`. The `bin` is
+  still named `open-predicate-generate` once the package is installed.
+
+### Added
+
+- **Publishing is back on, and npmjs.com authenticates by OIDC.**
+  [`.github/workflows/release.yml`](./.github/workflows/release.yml) publishes to both registries
+  when a GitHub Release is published. The npmjs job uses npm's [trusted
+  publishing](https://docs.npmjs.com/trusted-publishers): it requests `id-token: write` and npm
+  exchanges that for a short-lived credential, so there is **no `NPM_TOKEN` secret** in this
+  repository and nothing to rotate. Provenance is attached automatically, linking each tarball to
+  the workflow run and commit that built it. GitHub Packages stays token-authenticated — it has no
+  OIDC equivalent — but `GITHUB_TOKEN` is minted per run and expires with it.
+
+  `.github/scripts/version-published.sh` is restored alongside, so each job skips a version it has
+  already published and a partially-failed release can be re-run safely.
+
+  **The trust is pinned to the repository and to the workflow filename.** Renaming `release.yml`
+  breaks publishing until the trusted publisher is updated to match.
+
+  **npm cannot mint a package's first version over OIDC**, because a trusted publisher can only be
+  attached to a package that already exists. Claiming `@open-predicate/open-predicate` is therefore
+  a one-time manual publish, documented in
+  [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap). Until it has run,
+  neither registry has a copy and the README's *Status* table says so.
+
 ## [0.6.0] — 2026-09-13
 
 **A naming release.** No change to the grammar or to the semantics of evaluation:

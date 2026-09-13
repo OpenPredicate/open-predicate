@@ -371,7 +371,7 @@ Opt a single property out, or override its operators, from the resource schema i
 
 `--include`, `--exclude`, `--max-depth` and `--pointer` do the rest. Run `--help` for the full list.
 
-The tool is part of the package and is installed as `open-predicate-generate`, so once the package is published it is `npx open-predicate-generate` rather than a path. It is not published yet — see [Status](#status) — so today it is either a clone or `npm install github:OpenPredicate/open-predicate`.
+The tool ships inside the package as a `bin` named `open-predicate-generate`, so from a registry it is `npx @open-predicate/open-predicate` rather than a path — the package name, not the bin name, because the package is scoped and `npx` resolves packages. See [Status](#status) for whether that is reachable yet; from a clone or `npm install github:OpenPredicate/open-predicate` it always is.
 
 ## Exposing search to an agent
 
@@ -456,9 +456,9 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 | What the README says | Reality today |
 | --- | --- |
 | `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | The permanent namespace, but not served yet. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
-| The package names `open-predicate` and `@openpredicate/open-predicate` | Not published yet, to npmjs or to GitHub Packages, and the release pipeline does not try to. Both names are settled, so they are what will be claimed. |
+| The package names `@open-predicate/open-predicate` and `@openpredicate/open-predicate` | The release pipeline publishes both on a GitHub Release — npmjs.com by OIDC trusted publishing, GitHub Packages by `GITHUB_TOKEN`. npm cannot mint the *first* version over OIDC, though, so the npmjs name is claimed by a one-time manual bootstrap; until that has run, neither registry has a copy. [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap) has the procedure. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
-| `npx open-predicate-generate` | Not reachable from a registry, for the reason in the row above. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install; it does not work from npmjs. |
+| `npx @open-predicate/open-predicate` | Not reachable from a registry until the bootstrap in the row above has run. The `bin` entry is real and the tool ships inside the package, so this works from a clone or a git install either way. |
 
 Serving the schema at its `$id` and publishing the package are the remaining work. Until then the only fetchable copy of the schema is raw GitHub:
 
