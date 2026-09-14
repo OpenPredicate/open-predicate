@@ -463,7 +463,7 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 | --- | --- |
 | `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | **Served**, as `application/schema+json`, with `Access-Control-Allow-Origin: *` and immutable caching, byte-identical to the copy in this repository. `$ref` it directly, as [Using it from OpenAPI](#using-it-from-openapi) and the capability document examples do. |
 | [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate) on npmjs.com | **Published**, from `v0.6.0` on. Public, no credential needed to install. |
-| `@openpredicate/open-predicate` on GitHub Packages | Not published yet — the first copy goes up with the next GitHub Release. Installing from it needs an `.npmrc` and a token even though it is public, so npmjs.com is the easier path. |
+| `@openpredicate/open-predicate` on GitHub Packages | **Published**, from `0.6.1` on — the first copy went up with that release. Installing from it needs an `.npmrc` and a token even though it is public, so npmjs.com is the easier path. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
 | `npx @open-predicate/open-predicate` | Works from `0.6.1`. **Broken in `0.6.0`**, where the `bin` exited 0 having printed nothing — the entry guard compared `process.argv[1]` against `import.meta.url`, and npm installs a `bin` as a *symlink*. Use the package name, not the bin name `open-predicate-generate`, which is not a package. |
 

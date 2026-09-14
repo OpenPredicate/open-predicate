@@ -67,6 +67,14 @@ changed is that the package now works the way 0.6.0 said it did.
 
 ### Added
 
+- **GitHub Packages has its first copy.** `@openpredicate/open-predicate@0.6.1` is the first version
+  to reach it; npmjs.com had been the only registry carrying anything. Installing from it still needs
+  an `.npmrc` and a token even though it is public, so npmjs.com remains the easier path.
+
+- **0.6.1 is the first release with provenance.** Published over OIDC from the workflow rather than
+  from a laptop, so the tarball carries a SLSA v1 attestation linking it to the run and commit that
+  built it. Verify with `npm view @open-predicate/open-predicate@0.6.1 dist.attestations`.
+
 - **The project has a written governance and contribution process.**
   [`GOVERNANCE.md`](./GOVERNANCE.md) states how a decision is made and what it costs — editorial,
   substantive-compatible, or normative, where normative requires a record under
@@ -142,7 +150,7 @@ changed is that the package now works the way 0.6.0 said it did.
 - **`@open-predicate/open-predicate` is on npmjs.com**, public and installable, from `0.6.0` on. The
   package is the schema: `require()` it, or `import` it with `{ type: 'json' }`. The trusted
   publisher is configured, so every release from here is published by the workflow rather than by
-  hand. GitHub Packages gets its first copy with the next release.
+  hand. GitHub Packages got its first copy with 0.6.1.
 
 ## [0.6.0] — 2026-09-13
 
