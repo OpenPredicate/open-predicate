@@ -1,9 +1,12 @@
 {
   "name": "@open-predicate/open-predicate",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "OpenPredicate — an open standard for JSON-encoded, SQL-flavoured predicates, described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.10.0"
+  },
   "author": "Christos Gkoros",
   "contributors": [
     "OpenPredicate (https://openpredicate.tech)"

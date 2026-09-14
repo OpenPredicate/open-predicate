@@ -21,7 +21,7 @@ Write the filter grammar once. Use it for every `POST /…/search` and `QUERY /�
 
 One schema, two integration points, because JSON Schema is what both already speak: it is the interchange format of OpenAPI 3.1, and it is what an MCP `inputSchema` is.
 
-- **Install** — `npm i @open-predicate/open-predicate` ([npmjs.com](https://www.npmjs.com/package/@open-predicate/open-predicate)). The package *is* the schema: `require()` it, or `import schema from '@open-predicate/open-predicate' with { type: 'json' }` — ESM needs that import attribute, and a bare `import` throws without it.
+- **Install** — `npm i @open-predicate/open-predicate` (Node >= 20.10) ([npmjs.com](https://www.npmjs.com/package/@open-predicate/open-predicate)). The package *is* the schema: `require()` it, or `import schema from '@open-predicate/open-predicate' with { type: 'json' }` — ESM needs that import attribute, and a bare `import` throws without it.
 - **Schema** — [`open-predicate-schema.json`](./open-predicate-schema.json) (JSON Schema draft 2020-12)
 - **Semantics** — [`SPEC.md`](./SPEC.md) — nulls, paths, coercion, errors, limits
 - **MCP server** — [`examples/mcp-server/`](./examples/mcp-server) — a search tool with the language as its `inputSchema`, runnable
@@ -29,7 +29,7 @@ One schema, two integration points, because JSON Schema is what both already spe
 - **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema, plus the slice of the language you can serve, into a per-field filter schema
 - **Compared with GraphQL** — [`COMPARISON.md`](./COMPARISON.md) — what this overlaps with, what it does not, and what a JSON-Schema-native alternative would still need
 - **Stewardship** — the [OpenPredicate](https://openpredicate.tech) organisation — see [About OpenPredicate](#about-openpredicate)
-- **Version** — `0.6.0`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and neither 0.5.0 nor 0.6.0 touched it. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
+- **Version** — `0.6.1`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and neither 0.5.0 nor 0.6.0 touched it. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
 
 > **Pre-1.0, and installable.** The name is settled — *OpenPredicate*, stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, with the repository, both package names, the schema `$id` and the problem-type URIs all derived from it — the package is on npm as [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate), and the schema is **served at its `$id`** — so `$ref` it by URL, or from a packaged copy, whichever suits. One thing is still provisional: the grammar may still break before 1.0, with each break recorded in [`CHANGELOG.md`](./CHANGELOG.md). See [Status](#status) for what is reachable today.
 
@@ -465,7 +465,7 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 | [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate) on npmjs.com | **Published**, from `v0.6.0` on. Public, no credential needed to install. |
 | `@openpredicate/open-predicate` on GitHub Packages | Not published yet — the first copy goes up with the next GitHub Release. Installing from it needs an `.npmrc` and a token even though it is public, so npmjs.com is the easier path. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
-| `npx @open-predicate/open-predicate` | **Broken in `0.6.0` — fixed in the next release.** The `bin` exits 0 without doing anything, because the entry guard compared `process.argv[1]` against `import.meta.url` and npm installs a `bin` as a *symlink*. Until that ships, run it by path: `node node_modules/@open-predicate/open-predicate/tools/generate-filter-schema.mjs --help`. Note that `npx` takes the package name, not the bin name `open-predicate-generate`, which is not a package. |
+| `npx @open-predicate/open-predicate` | Works from `0.6.1`. **Broken in `0.6.0`**, where the `bin` exited 0 having printed nothing — the entry guard compared `process.argv[1]` against `import.meta.url`, and npm installs a `bin` as a *symlink*. Use the package name, not the bin name `open-predicate-generate`, which is not a package. |
 
 **The `$id` resolves.** The schema is served from the URL that identifies it, so the workflow the OpenAPI sections describe is a description of today rather than an intended end state:
 
@@ -488,7 +488,7 @@ npm i @open-predicate/open-predicate
 or with no package manager in the way — pinning a tag rather than `main`:
 
 ```bash
-curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.0/open-predicate-schema.json
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.1/open-predicate-schema.json
 ```
 
 The served copy and the packaged copy are the same bytes: the site vendors the schema out of this repository at a tag, so a release moves both together. See [`RELEASING.md`](./RELEASING.md).

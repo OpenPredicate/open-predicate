@@ -7,6 +7,12 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-14
+
+**A packaging release.** No change to the grammar, the schema or the semantics of evaluation:
+`open-predicate-schema.json` is byte-identical to 0.6.0, and the `$id` still names `v0.4.0`. What
+changed is that the package now works the way 0.6.0 said it did.
+
 ### Fixed
 
 - **The CLI did nothing when invoked as a CLI.** `tools/generate-filter-schema.mjs` guarded its entry
@@ -24,6 +30,22 @@ minor release may break compatibility, in which case the break is spelled out be
   The guard now compares through `realpathSync` on both sides, and `tests/generator.test.mjs` runs
   the real generator through a real symlink and requires output, so the regression cannot return. It
   still must not run on import, and that is asserted in the same test.
+
+- **`engines` was missing, so an unsupported Node failed obscurely.** The package now declares
+  `"node": ">=20.10.0"`. That is the real floor, not a guess: the generator uses `parseArgs` from
+  `node:util`, and the consumption path the README documents —
+  `import schema from '@open-predicate/open-predicate' with { type: 'json' }` — needs import
+  attributes, which is 20.10. Without the field, npm had nothing to warn against and a user on an
+  older line got a stack trace instead of a version complaint.
+
+- **The release pipeline never exercised the artifact it publishes.** `npm test` and
+  `npm run generate:example` both invoke the generator by path, which is the one way that never
+  crosses the symlink npm installs a `bin` as — so the no-op above passed every check and shipped.
+  [`.github/workflows/release.yml`](./.github/workflows/release.yml) now packs the tarball, installs
+  it into a scratch project the way a consumer would, and drives every entry point the README
+  documents: the bin through its symlink, `require()`, the ESM import attribute, and
+  `./generate`. It also asserts the generator stays silent when merely imported. A release cannot
+  now ship an artifact whose documented entry points do not work.
 
 ### Changed
 
@@ -99,7 +121,9 @@ minor release may break compatibility, in which case the break is spelled out be
   publishing](https://docs.npmjs.com/trusted-publishers): it requests `id-token: write` and npm
   exchanges that for a short-lived credential, so there is **no `NPM_TOKEN` secret** in this
   repository and nothing to rotate. Provenance is attached automatically, linking each tarball to
-  the workflow run and commit that built it. GitHub Packages stays token-authenticated — it has no
+  the workflow run and commit that built it — though only for tarballs the workflow publishes, so
+  0.6.0 has none: its bootstrap publish came from a laptop, which is the one publish OIDC cannot
+  do. 0.6.1 is the first over OIDC. GitHub Packages stays token-authenticated — it has no
   OIDC equivalent — but `GITHUB_TOKEN` is minted per run and expires with it.
 
   `.github/scripts/version-published.sh` is restored alongside, so each job skips a version it has
@@ -596,6 +620,7 @@ Initial research draft: `$and`, `$or`, `$not` over eight leaf condition types
 (`$eq`, `$ne`, `$in`, `$nin`, `$like`, `$nlike`, `$gt`/`$gte`/`$lt`/`$lte`/`$between`, `$isnull`),
 laid out as an OpenAPI `components.schemas` fragment.
 
+[0.6.1]: https://github.com/OpenPredicate/open-predicate/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.3.1...v0.4.0

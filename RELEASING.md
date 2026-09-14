@@ -27,7 +27,11 @@ Each publish job checks whether its version already exists and skips if so, so r
 
 ## Trusted publishing, and the one-time bootstrap
 
-npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and npm exchanges that token for a short-lived registry credential. There is no `NPM_TOKEN` in this repository and nothing to rotate. Provenance is attached automatically, so the tarball links back to the workflow run and the commit that built it.
+npmjs.com authenticates by OIDC: the `npmjs` job requests `id-token: write`, and npm exchanges that token for a short-lived registry credential. There is no `NPM_TOKEN` in this repository and nothing to rotate. Provenance is attached automatically, so the tarball links back to the workflow run and the commit that built it — **but only for tarballs this workflow publishes.** 0.6.0 has none: the bootstrap publish that claims a trusted publisher has to come from a laptop, because OIDC cannot mint a credential for a package that does not exist yet, and the registry metadata records npm 11.12.1 on Node 25 — nobody's runner image. 0.6.1 is the first release published over OIDC and so the first with provenance. Verify it rather than assuming:
+
+```bash
+npm view @open-predicate/open-predicate@0.6.1 dist.attestations   # empty output means there is none
+```
 
 **OIDC cannot perform a package's first publish.** npm requires the package to exist before a trusted publisher can be attached to it, so the very first version has to go up under a personal login. That bootstrap is a one-off:
 
