@@ -1,7 +1,7 @@
 {
   "name": "@open-predicate/open-predicate",
-  "version": "0.6.1",
-  "description": "OpenPredicate — an open standard for JSON-encoded, SQL-flavoured predicates, described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
+  "version": "0.6.2",
+  "description": "OpenPredicate \u2014 an open standard for JSON-encoded, SQL-flavoured predicates, described by a single JSON Schema: $ref it from OpenAPI, or inline it into an MCP tool's inputSchema.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -48,7 +48,13 @@
     "tools/",
     "SPEC.md",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "COMPARISON.md",
+    "CONTRIBUTING.md",
+    "GOVERNANCE.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "SUPPORT.md"
   ],
   "scripts": {
     "test": "node --test tests/*.test.mjs",

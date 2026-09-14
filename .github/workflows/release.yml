@@ -43,38 +43,10 @@ jobs:
       # 0.6.0 shipped a `bin` that exited 0 having printed nothing, and nothing
       # here caught it: `npm test` and `npm run generate:example` both invoke the
       # generator by path, which is the one way that never crosses the symlink npm
-      # installs a bin as. So install the tarball the way a user would, and drive
-      # every entry point the README documents.
+      # installs a bin as. CI runs this across every package manager and platform;
+      # the release gate runs it once more against the exact tree being published.
       - name: Smoke-test the packed artifact
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          npm pack --silent --pack-destination "$work" >/dev/null
-          tarball="$(ls "$work"/*.tgz)"
-
-          cd "$work"
-          npm init -y >/dev/null 2>&1
-          npm install --silent "$tarball"
-
-          # The bin, through the symlink — this is the case that regressed.
-          out="$(./node_modules/.bin/open-predicate-generate --help)"
-          case "$out" in
-            *"derive a per-resource filter schema"*) ;;
-            *) echo "::error::the installed bin produced no usable output"; exit 1 ;;
-          esac
-
-          # And it must still not run merely because it was imported.
-          quiet="$(node --input-type=module -e 'await import("@open-predicate/open-predicate/generate");')"
-          if [ -n "$quiet" ]; then
-            echo "::error::importing the generator ran it"; exit 1
-          fi
-
-          # The three consumption paths README documents.
-          node -e 'const s=require("@open-predicate/open-predicate"); if(!s.$id) throw new Error("require() returned no $id")'
-          node --input-type=module -e 'import s from "@open-predicate/open-predicate" with { type: "json" }; if(!s.$id) throw new Error("ESM import returned no $id")'
-          node --input-type=module -e 'import * as g from "@open-predicate/open-predicate/generate"; if (typeof g.generateFilterSchema !== "function") throw new Error("./generate does not export generateFilterSchema")'
-
-          echo "packed artifact OK — bin, import attribute, and ./generate all work"
+        run: .github/scripts/smoke-packed-artifact.sh npm
 
       - name: Resolve version and publish tag
         id: resolve

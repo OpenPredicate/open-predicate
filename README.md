@@ -24,12 +24,12 @@ One schema, two integration points, because JSON Schema is what both already spe
 - **Install** — `npm i @open-predicate/open-predicate` (Node >= 20.10) ([npmjs.com](https://www.npmjs.com/package/@open-predicate/open-predicate)). The package *is* the schema: `require()` it, or `import schema from '@open-predicate/open-predicate' with { type: 'json' }` — ESM needs that import attribute, and a bare `import` throws without it.
 - **Schema** — [`open-predicate-schema.json`](./open-predicate-schema.json) (JSON Schema draft 2020-12)
 - **Semantics** — [`SPEC.md`](./SPEC.md) — nulls, paths, coercion, errors, limits
-- **MCP server** — [`examples/mcp-server/`](./examples/mcp-server) — a search tool with the language as its `inputSchema`, runnable
-- **OpenAPI documents** — [`examples/`](./examples) — working 3.1 (`POST /…/search`) and 3.2 (`QUERY`) integrations
+- **MCP server** — [`examples/mcp-server/`](https://github.com/OpenPredicate/open-predicate/tree/main/examples/mcp-server) — a search tool with the language as its `inputSchema`, runnable
+- **OpenAPI documents** — [`examples/`](https://github.com/OpenPredicate/open-predicate/tree/main/examples) — working 3.1 (`POST /…/search`) and 3.2 (`QUERY`) integrations
 - **Generator** — [`tools/generate-filter-schema.mjs`](./tools/generate-filter-schema.mjs) — turns a resource's JSON Schema, plus the slice of the language you can serve, into a per-field filter schema
 - **Compared with GraphQL** — [`COMPARISON.md`](./COMPARISON.md) — what this overlaps with, what it does not, and what a JSON-Schema-native alternative would still need
 - **Stewardship** — the [OpenPredicate](https://openpredicate.tech) organisation — see [About OpenPredicate](#about-openpredicate)
-- **Version** — `0.6.1`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and neither 0.5.0 nor 0.6.0 touched it. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
+- **Version** — `0.6.2`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and neither 0.5.0 nor 0.6.0 touched it. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
 
 > **Pre-1.0, and installable.** The name is settled — *OpenPredicate*, stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, with the repository, both package names, the schema `$id` and the problem-type URIs all derived from it — the package is on npm as [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate), and the schema is **served at its `$id`** — so `$ref` it by URL, or from a packaged copy, whichever suits. One thing is still provisional: the grammar may still break before 1.0, with each break recorded in [`CHANGELOG.md`](./CHANGELOG.md). See [Status](#status) for what is reachable today.
 
@@ -54,7 +54,7 @@ is `department = 'sales' AND age >= 18`. That holds for operators on one field t
 
 ## Operator reference
 
-Every operator below has a matching fixture in [`tests/fixtures/valid/`](./tests/fixtures/valid) — the table and the test suite are the same list. Full semantics in [SPEC.md §5](./SPEC.md#5-operator-semantics).
+Every operator below has a matching fixture in [`tests/fixtures/valid/`](https://github.com/OpenPredicate/open-predicate/tree/main/tests/fixtures/valid) — the table and the test suite are the same list. Full semantics in [SPEC.md §5](./SPEC.md#5-operator-semantics).
 
 ### Logical — profile `core`
 
@@ -165,7 +165,7 @@ A path addresses one position. To say something about an array's elements, quant
 
 ## Using it from OpenAPI
 
-One of the two integration paths this repo exists for; [Exposing search to an agent](#exposing-search-to-an-agent) covers the other. Complete, CI-linted documents live in [`examples/`](./examples).
+One of the two integration paths this repo exists for; [Exposing search to an agent](#exposing-search-to-an-agent) covers the other. Complete, CI-linted documents live in [`examples/`](https://github.com/OpenPredicate/open-predicate/tree/main/examples).
 
 ### OpenAPI 3.1 — `POST /…/search`
 
@@ -197,7 +197,7 @@ components:
         filter: { $ref: '#/components/schemas/Filter' }
 ```
 
-→ [`examples/openapi-3.1-post-search.yaml`](./examples/openapi-3.1-post-search.yaml)
+→ [`examples/openapi-3.1-post-search.yaml`](https://github.com/OpenPredicate/open-predicate/blob/main/examples/openapi-3.1-post-search.yaml)
 
 ### OpenAPI 3.2 — the `QUERY` method
 
@@ -222,7 +222,7 @@ paths:
                 schema: { type: string, format: uri-reference }
 ```
 
-→ [`examples/openapi-3.2-query-method.yaml`](./examples/openapi-3.2-query-method.yaml)
+→ [`examples/openapi-3.2-query-method.yaml`](https://github.com/OpenPredicate/open-predicate/blob/main/examples/openapi-3.2-query-method.yaml)
 
 `QUERY` ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008)) is **safe and idempotent** and carries a request body — it says "this is a read" in a way `POST` cannot, so intermediaries may cache it and clients may retry it. Return `Content-Location` when the same representation is also reachable by `GET`.
 
@@ -306,7 +306,7 @@ node tools/generate-filter-schema.mjs examples/pet.schema.json \
   --out pet.filter.json
 ```
 
-Given [`examples/pet.schema.json`](./examples/pet.schema.json), the generated [`pet.filter.json`](./examples/pet.filter.json) turns each of these from an empty result set into a `400`:
+Given [`examples/pet.schema.json`](https://github.com/OpenPredicate/open-predicate/blob/main/examples/pet.schema.json), the generated [`pet.filter.json`](https://github.com/OpenPredicate/open-predicate/blob/main/examples/pet.filter.json) turns each of these from an empty result set into a `400`:
 
 | Filter | Rejected because |
 | --- | --- |
@@ -319,7 +319,7 @@ Given [`examples/pet.schema.json`](./examples/pet.schema.json), the generated [`
 
 It also writes the [SPEC.md §2.2](./SPEC.md#22-capability-discovery) capability document from the same source, so the schema and the published domains cannot drift apart.
 
-That file is also what [`examples/mcp-server`](./examples/mcp-server) hands a model: a resource schema in, a tool definition out, with nothing written by hand in between.
+That file is also what [`examples/mcp-server`](https://github.com/OpenPredicate/open-predicate/tree/main/examples/mcp-server) hands a model: a resource schema in, a tool definition out, with nothing written by hand in between.
 
 What it decides, and why:
 
@@ -377,7 +377,7 @@ The tool ships inside the package as a `bin` named `open-predicate-generate`, so
 
 ## Exposing search to an agent
 
-The other integration path, and a working server for it lives in [`examples/mcp-server/`](./examples/mcp-server) — one tool, real records, `node examples/mcp-server/demo.mjs` to watch it answer and reject.
+The other integration path, and a working server for it lives in [`examples/mcp-server/`](https://github.com/OpenPredicate/open-predicate/tree/main/examples/mcp-server) — one tool, real records, `node examples/mcp-server/demo.mjs` to watch it answer and reject.
 
 The integration is one property of one argument:
 
@@ -488,10 +488,10 @@ npm i @open-predicate/open-predicate
 or with no package manager in the way — pinning a tag rather than `main`:
 
 ```bash
-curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.1/open-predicate-schema.json
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.2/open-predicate-schema.json
 ```
 
-The served copy and the packaged copy are the same bytes: the site vendors the schema out of this repository at a tag, so a release moves both together. See [`RELEASING.md`](./RELEASING.md).
+The served copy and the packaged copy are the same bytes: the site vendors the schema out of this repository at a tag, so a release moves both together. See [`RELEASING.md`](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md).
 
 **What is stable enough to review.** The grammar, the operator set and profile grouping, the null and three-valued semantics, and the error model. Those are what the schema, [`SPEC.md`](./SPEC.md) and the test suite pin down, and they are what feedback is most useful on. The grammar may still change before 1.0; each break is recorded in [`CHANGELOG.md`](./CHANGELOG.md) with a migration note.
 
@@ -499,7 +499,7 @@ The served copy and the packaged copy are the same bytes: the site vendors the s
 
 OpenPredicate is stewarded by the [**OpenPredicate**](https://openpredicate.tech) organisation, at [github.com/OpenPredicate](https://github.com/OpenPredicate). Its purpose is to take this predicate grammar from a single-author design to an **open standard**, and to push for its adoption at the places APIs are already described: `$ref`-ed from OpenAPI documents, inlined as MCP tool `inputSchema`s, and carried as the body of the HTTP `QUERY` method.
 
-That goal sets the terms of the work. The grammar is specified normatively in [`SPEC.md`](./SPEC.md) rather than left to a reference implementation, so that independent implementations can agree; every breaking change is recorded with a migration note; and each significant design decision is argued in writing under [`decisions/`](./decisions) rather than settled by commit. Adoption arguments belong in the open too — [`COMPARISON.md`](./COMPARISON.md) is where the case against the nearest alternative is made and its gaps admitted.
+That goal sets the terms of the work. The grammar is specified normatively in [`SPEC.md`](./SPEC.md) rather than left to a reference implementation, so that independent implementations can agree; every breaking change is recorded with a migration note; and each significant design decision is argued in writing under [`decisions/`](https://github.com/OpenPredicate/open-predicate/tree/main/decisions) rather than settled by commit. Adoption arguments belong in the open too — [`COMPARISON.md`](./COMPARISON.md) is where the case against the nearest alternative is made and its gaps admitted.
 
 [`GOVERNANCE.md`](./GOVERNANCE.md) is where that process is written down: what each class of change costs, how a disputed design call is resolved — including that dissent is recorded in the decision record rather than discarded — what earns commit rights, and the project's royalty-free patent posture. It also states plainly that there is currently one maintainer, and treats that as the defect it is.
 

@@ -30,7 +30,7 @@ normatively. Reports that land squarely in scope include:
   through the spec where a conforming implementation ends up widening a result set, report it here
   rather than as a design objection.
 - **An injection or escaping defect** in the filter-to-SQL compiler under
-  [`experiments/filter-to-sql/`](./experiments/filter-to-sql), even though it is explicitly an
+  [`experiments/filter-to-sql/`](https://github.com/OpenPredicate/open-predicate/tree/main/experiments/filter-to-sql), even though it is explicitly an
   exercise and not a deliverable. It is the thing people will read to learn how to compile a filter,
   so an unsafe pattern in it propagates.
 - **Schema-level resource exhaustion**: a document that makes a conforming validator behave

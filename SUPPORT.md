@@ -14,7 +14,7 @@ Knowing that up front is more useful than a promise that does not hold.
 | Report that the schema and the spec disagree | An issue, using the *spec ambiguity* template |
 | Report a security or denial-of-service concern | [`SECURITY.md`](./SECURITY.md) — **not** a public issue |
 | Say you have implemented it | An issue, using the *implementation report* template. These are the most welcome issues the project receives |
-| Understand why a decision was made | [`decisions/`](./decisions) and [`CHANGELOG.md`](./CHANGELOG.md), which carries a migration note for every break |
+| Understand why a decision was made | [`decisions/`](https://github.com/OpenPredicate/open-predicate/tree/main/decisions) and [`CHANGELOG.md`](./CHANGELOG.md), which carries a migration note for every break |
 | Know how this compares to GraphQL, OData, CQL2, Mongo or JSONPath | [`COMPARISON.md`](./COMPARISON.md), including the gaps it admits |
 
 ## Questions that already have answers

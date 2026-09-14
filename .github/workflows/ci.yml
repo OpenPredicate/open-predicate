@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Nothing here needs to write anything.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: schema tests (Node ${{ matrix.node }})
@@ -21,6 +25,55 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  # The 0.6.0 bin shipped as a silent no-op because nothing exercised the packed
+  # artifact. Package managers disagree about how they link a bin — npm and yarn
+  # symlink, pnpm writes a shim, Berry's PnP has no node_modules at all, and
+  # Windows gets .cmd wrappers instead of symlinks — and that disagreement is
+  # exactly what broke. So the artifact is installed and driven under each of
+  # them, on each platform that links differently.
+  artifact:
+    name: packed artifact (${{ matrix.pm }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, pm: npm }
+          - { os: ubuntu-latest, pm: pnpm }
+          - { os: ubuntu-latest, pm: yarn }
+          - { os: ubuntu-latest, pm: yarn-pnp }
+          - { os: ubuntu-latest, pm: bun }
+          # Windows links a bin as a .cmd wrapper that passes the real path, and
+          # macOS resolves /tmp through a symlink. Both change what the entry
+          # guard sees, so both are covered rather than reasoned about.
+          - { os: windows-latest, pm: npm }
+          - { os: macos-latest, pm: npm }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install ${{ matrix.pm }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ matrix.pm }}' in
+            pnpm) npm install -g pnpm@10 ;;
+            # Berry, installed from npm rather than through corepack so the
+            # version is pinned and no global opt-in is needed. It takes over
+            # the `yarn` command, which is what the smoke script calls.
+            yarn-pnp) npm install -g @yarnpkg/cli-dist@4 ;;
+            # bun's own binary arrives via its postinstall, so npm can do this
+            # and the pipeline needs neither curl|bash nor a third-party action.
+            bun) npm install -g bun ;;
+            *) ;;  # npm and yarn classic are already on the runners
+          esac
+
+      - name: Smoke-test the packed artifact
+        shell: bash
+        run: .github/scripts/smoke-packed-artifact.sh '${{ matrix.pm }}'
 
   openapi:
     name: OpenAPI examples resolve

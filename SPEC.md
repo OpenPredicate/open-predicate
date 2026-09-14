@@ -399,7 +399,7 @@ is TRUE only when a **single** item has both `qty > 2` and an `A` SKU.
 
 is TRUE when *some* item has `qty > 2` and *some* item has an `A` SKU — **possibly different items**, because each `$some` chooses its own element.
 
-Both readings are expressible and the nesting says which is meant. Versions before v0.4.0 offered a second mechanism for the second reading — a `[*]` wildcard path segment — which expressed nothing the two-clause form does not, could not be declined by a server through its profiles, and left the quantifier's scope to be inferred from a path shape. It was removed; see [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md).
+Both readings are expressible and the nesting says which is meant. Versions before v0.4.0 offered a second mechanism for the second reading — a `[*]` wildcard path segment — which expressed nothing the two-clause form does not, could not be declined by a server through its profiles, and left the quantifier's scope to be inferred from a path shape. It was removed; see [`decisions/0001`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md).
 
 ### 5.10 Presence and type — `$exists`, `$isNull`, `$type`
 

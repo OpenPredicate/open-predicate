@@ -9,9 +9,9 @@ can do is find the construct that will be regretted and say so while saying so i
 There is precedent. Three operator overlaps — `$in` against `$hasAny`, `$elemMatch` against wildcard
 paths, and three-valued `$not`/`$ne` silently excluding nulls — were removed in v0.4.0 because an
 external survey and this repository's own
-[`experiments/filter-to-sql`](./experiments/filter-to-sql) converged on the same three
+[`experiments/filter-to-sql`](https://github.com/OpenPredicate/open-predicate/tree/main/experiments/filter-to-sql) converged on the same three
 independently. Both reviews were unsolicited. See
-[`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for what happened to
+[`decisions/0001`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md) for what happened to
 them.
 
 So: if something here looks wrong, file it. You do not need to propose a replacement, and you do not
@@ -47,13 +47,13 @@ implementers.
 The specification is written normatively so that independent implementations can agree, rather than
 deferring to a reference implementation. So a second implementation is worth more here than a
 feature, and the evidence says it is small work:
-[`experiments/filter-to-sql`](./experiments/filter-to-sql) covers 33 of 34 operators in one
+[`experiments/filter-to-sql`](https://github.com/OpenPredicate/open-predicate/tree/main/experiments/filter-to-sql) covers 33 of 34 operators in one
 dependency-free file, and the part everyone worries about — UNKNOWN — is 23 lines of it.
 
 **Be aware of what the test assets currently are and are not.** This matters if you are planning to
 port them:
 
-- [`tests/fixtures/`](./tests/fixtures) holds 32 valid and 28 invalid filters as declarative JSON.
+- [`tests/fixtures/`](https://github.com/OpenPredicate/open-predicate/tree/main/tests/fixtures) holds 32 valid and 28 invalid filters as declarative JSON.
   They are portable in shape, and there is a test asserting every operator in the grammar is
   exercised by at least one of them — the operator table and the fixture set are the same list.
 - They check **schema well-formedness only.** There are no records and no expected results, so they

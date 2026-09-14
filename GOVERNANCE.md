@@ -25,7 +25,7 @@ what a conforming implementation must do.
 | --- | --- | --- |
 | **Editorial** | Typos, clarifications that cannot change behaviour, examples, tooling, tests, site copy | A pull request. One maintainer approval. |
 | **Substantive, compatible** | A new optional profile member, a new capability-document field, generator features, new fixtures | An issue first, then a pull request that references it. A `CHANGELOG.md` entry. |
-| **Normative** | Adding, removing or renaming an operator; changing semantics, three-valued logic, coercion, error conditions or the safety limits; anything that changes what `MUST` happen | A **decision record** under [`decisions/`](./decisions), merged before or with the implementation. A `CHANGELOG.md` entry with a migration note. A `$id` version bump per [SPEC.md §9](./SPEC.md). |
+| **Normative** | Adding, removing or renaming an operator; changing semantics, three-valued logic, coercion, error conditions or the safety limits; anything that changes what `MUST` happen | A **decision record** under [`decisions/`](https://github.com/OpenPredicate/open-predicate/tree/main/decisions), merged before or with the implementation. A `CHANGELOG.md` entry with a migration note. A `$id` version bump per [SPEC.md §9](./SPEC.md). |
 
 If it is unclear which class a change falls into, it is normative. The cost of over-documenting a
 change is a file nobody needed; the cost of under-documenting one is an implementer who cannot tell
@@ -33,9 +33,9 @@ whether their implementation is still conforming.
 
 ## Decision records are the mechanism
 
-Significant design decisions are argued in writing under [`decisions/`](./decisions) rather than
+Significant design decisions are argued in writing under [`decisions/`](https://github.com/OpenPredicate/open-predicate/tree/main/decisions) rather than
 settled by commit message. There is currently **exactly one record** —
-[`0001-array-quantifiers-and-unknown-handling.md`](./decisions/0001-array-quantifiers-and-unknown-handling.md).
+[`0001-array-quantifiers-and-unknown-handling.md`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md).
 More are expected, and at least two are already owed: the resolution of
 [#1](https://github.com/OpenPredicate/open-predicate/issues/1) (scalar shorthand forcing `anyOf` on
 `Constraint`) and [#2](https://github.com/OpenPredicate/open-predicate/issues/2) (the capability
@@ -87,7 +87,7 @@ sufficient to be proposed as a maintainer:
 - **An authored decision record that was accepted**, including one that argued successfully against
   the editor.
 - **An independent implementation that is shipped and maintained**, and that passes the fixtures in
-  [`tests/fixtures/`](./tests/fixtures). Implementers are the constituency this specification exists
+  [`tests/fixtures/`](https://github.com/OpenPredicate/open-predicate/tree/main/tests/fixtures). Implementers are the constituency this specification exists
   to serve, and their view of an ambiguity outranks the editor's intent about it.
 
 A maintainer is added by consensus of the existing maintainers, announced in a decision record, and

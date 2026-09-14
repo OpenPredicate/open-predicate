@@ -75,16 +75,20 @@ bothers you.
 
 ## The reserved unscoped name
 
-`open-predicate`, unscoped, is published once as a deprecated placeholder so the name cannot be
-taken by something unrelated to the project. It carries no schema and no code, is not versioned
-alongside releases, and the release pipeline never touches it. Recreate and publish it like this:
+`open-predicate`, unscoped, is published as a deprecated placeholder so the name cannot be taken by
+something unrelated to the project. It carries no schema and no grammar, is not versioned alongside
+releases, and the release pipeline never touches it.
+
+It does carry one executable, and only to fail helpfully. `npx open-predicate` used to print npm's
+`could not determine executable to run`, which tells someone following a stale instruction nothing;
+it now names the scoped package and exits non-zero. Recreate and publish it like this:
 
 ````bash
 d=$(mktemp -d) && cd "$d"
 cat > package.json <<'JSON'
 {
   "name": "open-predicate",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Name reserved. The package is @open-predicate/open-predicate — install that instead.",
   "license": "MIT",
   "author": "Christos Gkoros",
@@ -93,7 +97,8 @@ cat > package.json <<'JSON'
   "bugs": { "url": "https://github.com/OpenPredicate/open-predicate/issues" },
   "keywords": ["open-predicate", "openpredicate"],
   "publishConfig": { "registry": "https://registry.npmjs.org" },
-  "files": ["README.md"]
+  "bin": { "open-predicate": "redirect.js" },
+  "files": ["README.md", "redirect.js"]
 }
 JSON
 cat > README.md <<'MD'
@@ -114,9 +119,30 @@ versioned alongside releases.
 MIT.
 MD
 
+cat > redirect.js <<'JS'
+#!/usr/bin/env node
+// A reserved name with no implementation. Anyone running `npx open-predicate`
+// has followed a stale instruction, so say where to go instead of letting npm
+// print "could not determine executable to run". Non-zero, because whatever
+// they asked for is not here.
+console.error(`open-predicate is a reserved name and carries no code.
+
+OpenPredicate is published as a scoped package:
+
+  npm install @open-predicate/open-predicate     the schema
+  npx @open-predicate/open-predicate --help      the filter-schema generator
+
+https://openpredicate.tech`);
+process.exit(1);
+JS
+chmod +x redirect.js
+
 npm publish
 npm deprecate open-predicate "Moved to @open-predicate/open-predicate — install that instead."
 ````
+
+The deprecation has to be re-applied after each publish: `npm deprecate` marks a version, so a new
+version arrives undeprecated even though every earlier one is marked.
 
 The `npm deprecate` is the part that matters: it makes `npm install open-predicate` print the
 redirect rather than silently installing an empty package.

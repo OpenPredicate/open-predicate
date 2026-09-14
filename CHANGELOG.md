@@ -7,6 +7,57 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-09-14
+
+**A packaging release, again.** The schema is still byte-identical and the `$id` still names
+`v0.4.0`. 0.6.1 fixed the defects an audit of the package found; this one fixes the ones that
+audit had not looked for, and closes the coverage gaps that let the first set through.
+
+### Fixed
+
+- **35 links in the shipped documents pointed at files that are not shipped.** The package is a
+  subset of the repository, so a relative link into `examples/` reads fine on GitHub and is dead for anyone
+  reading the same file in `node_modules`. npmjs.com hides this for the README — it rewrites relative
+  links against the repository — but only for the README, and only on that page.
+
+  Fixed from both ends. `files` now ships the documents a consumer or a would-be contributor
+  plausibly wants offline: `COMPARISON.md`, `CONTRIBUTING.md`, `GOVERNANCE.md`, `CODE_OF_CONDUCT.md`,
+  `SECURITY.md` and `SUPPORT.md`. Links to things a schema package has no business shipping —
+  `examples/`, `assets/`, `.github/`, `tests/`, `experiments/`, the 39 KB decision record and the
+  maintainer-only `RELEASING.md` — are now absolute. The tarball grew from 61 KB to 77 KB, which is
+  the price of the docs being readable where they are installed.
+
+- **`npx open-predicate` printed npm's `could not determine executable to run`.** The unscoped name
+  is a deprecated placeholder with no code, so npm had no bin to run and said so in its own terms,
+  which tells someone following a stale instruction nothing. It now carries a single executable
+  whose only job is to name the scoped package and exit non-zero. The recipe in
+  [`RELEASING.md`](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md) is updated
+  to reproduce it, and records that `npm deprecate` marks a version rather than a package, so the
+  deprecation has to be re-applied after each publish.
+
+### Added
+
+- **The packed artifact is now tested under every package manager, on every platform that links a
+  bin differently.** The 0.6.0 no-op was a symlink bug, and package managers disagree about
+  symlinks: npm and yarn classic symlink, pnpm writes a shell shim, Yarn Berry's PnP has no
+  `node_modules` at all, and Windows gets `.cmd` wrappers that pass the real path — which is why the
+  bug never existed there. The release gate added in 0.6.1 only ever proved the npm-on-Linux case.
+
+  [`.github/scripts/smoke-packed-artifact.sh`](https://github.com/OpenPredicate/open-predicate/blob/main/.github/scripts/smoke-packed-artifact.sh)
+  installs the tarball and drives the bin, `require()`, the documented ESM import attribute and
+  `./generate` under a named package manager, and CI runs it across npm, pnpm, yarn, yarn-pnp and
+  bun on Linux plus npm on Windows and macOS. The release workflow calls the same script rather than
+  keeping a second copy of the logic.
+
+- **`tests/packaging.test.mjs` asserts the claims a tarball can break.** Every relative link in a
+  shipped document resolves to a shipped file; no shipped document links outside the package; the
+  bin is shipped, non-empty and still has its shebang; and the declared Node floor is the one the
+  code actually needs. It reads the file list from `npm pack --dry-run --json` rather than
+  extracting a tarball, so it needs no `tar` and runs on Windows unchanged.
+
+- **CI declares `permissions: contents: read`.** It had no `permissions` block at all, so it
+  inherited the repository default while `release.yml` had been careful to take none.
+
 ## [0.6.1] — 2026-09-14
 
 **A packaging release.** No change to the grammar, the schema or the semantics of evaluation:
@@ -41,7 +92,7 @@ changed is that the package now works the way 0.6.0 said it did.
 - **The release pipeline never exercised the artifact it publishes.** `npm test` and
   `npm run generate:example` both invoke the generator by path, which is the one way that never
   crosses the symlink npm installs a `bin` as — so the no-op above passed every check and shipped.
-  [`.github/workflows/release.yml`](./.github/workflows/release.yml) now packs the tarball, installs
+  [`.github/workflows/release.yml`](https://github.com/OpenPredicate/open-predicate/blob/main/.github/workflows/release.yml) now packs the tarball, installs
   it into a scratch project the way a consumer would, and drives every entry point the README
   documents: the bin through its symlink, `require()`, the ESM import attribute, and
   `./generate`. It also asserts the generator stays silent when merely imported. A release cannot
@@ -63,7 +114,7 @@ changed is that the package now works the way 0.6.0 said it did.
   and no code, so the name cannot end up on something unrelated to the project.
   `npm install open-predicate` prints a redirect to the scoped package. It is not versioned
   alongside releases and the release pipeline never touches it — see
-  [`RELEASING.md`](./RELEASING.md#the-reserved-unscoped-name).
+  [`RELEASING.md`](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md#the-reserved-unscoped-name).
 
 ### Added
 
@@ -78,7 +129,7 @@ changed is that the package now works the way 0.6.0 said it did.
 - **The project has a written governance and contribution process.**
   [`GOVERNANCE.md`](./GOVERNANCE.md) states how a decision is made and what it costs — editorial,
   substantive-compatible, or normative, where normative requires a record under
-  [`decisions/`](./decisions), a migration note and a `$id` bump. It sets out how a disputed design
+  [`decisions/`](https://github.com/OpenPredicate/open-predicate/tree/main/decisions), a migration note and a `$id` bump. It sets out how a disputed design
   call is resolved (answered in writing, then a decision record quoting the objection in the
   objector's words, then 14-day lazy consensus, then the editor decides **and the dissent is recorded
   in the record**), what earns commit rights, and an explicit royalty-free patent posture — MIT
@@ -121,10 +172,10 @@ changed is that the package now works the way 0.6.0 said it did.
   Serving it is a second repository's job, so a release is not finished when the tag is pushed —
   [`OpenPredicate/openpredicate.tech`](https://github.com/OpenPredicate/openpredicate.tech) vendors
   the artefacts and has to be synced at the tag. That step is now written down in
-  [`RELEASING.md`](./RELEASING.md#serving-the-schema-from-its-id).
+  [`RELEASING.md`](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md#serving-the-schema-from-its-id).
 
 - **Publishing is back on, and npmjs.com authenticates by OIDC.**
-  [`.github/workflows/release.yml`](./.github/workflows/release.yml) publishes to both registries
+  [`.github/workflows/release.yml`](https://github.com/OpenPredicate/open-predicate/blob/main/.github/workflows/release.yml) publishes to both registries
   when a GitHub Release is published. The npmjs job uses npm's [trusted
   publishing](https://docs.npmjs.com/trusted-publishers): it requests `id-token: write` and npm
   exchanges that for a short-lived credential, so there is **no `NPM_TOKEN` secret** in this
@@ -143,7 +194,7 @@ changed is that the package now works the way 0.6.0 said it did.
   **npm cannot mint a package's first version over OIDC**, because a trusted publisher can only be
   attached to a package that already exists. Claiming `@open-predicate/open-predicate` was therefore
   a one-time manual publish, documented along with everything it cost to get right in
-  [`RELEASING.md`](./RELEASING.md#trusted-publishing-and-the-one-time-bootstrap) — including that
+  [`RELEASING.md`](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md#trusted-publishing-and-the-one-time-bootstrap) — including that
   *configuring* the trusted publisher needs npm >= 12, which fails with an unexplained `E400` on
   npm 11 because the older client omits the `permissions` field the registry now requires.
 
@@ -196,9 +247,9 @@ to re-point at.
 
 ### Added
 
-- **Brand assets, in [`assets/`](./assets/).** The `{ > }` mark — JSON braces around a comparison —
+- **Brand assets, in [`assets/`](https://github.com/OpenPredicate/open-predicate/tree/main/assets/).** The `{ > }` mark — JSON braces around a comparison —
   as SVG and as raster at three sizes, plus a wordmark for light and dark backgrounds.
-  [`assets/README.md`](./assets/README.md) states the palette and the usage rules. The README now
+  [`assets/README.md`](https://github.com/OpenPredicate/open-predicate/blob/main/assets/README.md) states the palette and the usage rules. The README now
   opens with the mark. MIT-licensed with the rest of the repository.
 
 ## [0.5.0] — 2026-09-13
@@ -360,7 +411,7 @@ document's top-level members. No filter valid under 0.4.0 becomes invalid.
 **Breaking.** The `$id` is now `…/v0.4.0/open-predicate-schema.json`. This release resolves the
 three operator overlaps that an external review and this repository's own
 `experiments/filter-to-sql` flagged independently; the design and the evidence are in
-[`decisions/0001-array-quantifiers-and-unknown-handling.md`](./decisions/0001-array-quantifiers-and-unknown-handling.md).
+[`decisions/0001-array-quantifiers-and-unknown-handling.md`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md).
 
 The headline is that the language had **two** unrelated mechanisms for looking inside an array —
 `$elemMatch` and the `[*]` path segment — and one mechanism now does both jobs while naming its
@@ -464,7 +515,7 @@ grammar and the grammar did not move. Consumers pinning that `$id` have nothing 
   name, and npm blocks a name from reuse permanently once it has been published and unpublished. `.github/workflows/release.yml` now only verifies a release —
   the test suite, and the tag-against-`package.json` check — and uploads nothing. The
   `NPM_TOKEN` secret and `.github/scripts/version-published.sh` are deleted with it.
-  [RELEASING.md](./RELEASING.md#turning-publishing-back-on) keeps what the jobs needed, so they
+  [RELEASING.md](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md#turning-publishing-back-on) keeps what the jobs needed, so they
   can be restored from git history rather than rewritten.
 
 ### Changed
@@ -473,7 +524,7 @@ grammar and the grammar did not move. Consumers pinning that `$id` have nothing 
   `npm install --save-dev open-predicate`, which the README's own *Status* table already
   contradicted two screens further down. It now vendors the file by `curl`, which is the only
   way to obtain the schema and always was.
-- **[RELEASING.md](./RELEASING.md) documents the process that exists** — a tag and a GitHub
+- **[RELEASING.md](https://github.com/OpenPredicate/open-predicate/blob/main/RELEASING.md) documents the process that exists** — a tag and a GitHub
   Release, carrying notes and a source snapshot and nothing else.
 
 ## [0.3.0] — 2026-09-04
@@ -628,6 +679,7 @@ Initial research draft: `$and`, `$or`, `$not` over eight leaf condition types
 (`$eq`, `$ne`, `$in`, `$nin`, `$like`, `$nlike`, `$gt`/`$gte`/`$lt`/`$lte`/`$between`, `$isnull`),
 laid out as an OpenAPI `components.schemas` fragment.
 
+[0.6.2]: https://github.com/OpenPredicate/open-predicate/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/OpenPredicate/open-predicate/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/OpenPredicate/open-predicate/compare/v0.4.0...v0.5.0
