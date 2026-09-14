@@ -1,0 +1,98 @@
+name: Implementation report
+description: You have implemented the grammar, or made an existing library conform. Very welcome.
+title: "Implementation: "
+labels: ["implementation report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Implementers are the constituency this specification exists to serve**, and
+        [`GOVERNANCE.md`](https://github.com/OpenPredicate/open-predicate/blob/main/GOVERNANCE.md)
+        says your reading of an ambiguity outranks the editor's intent about it. A shipped and
+        maintained implementation is also one of the three things that earns commit rights.
+
+        **The gaps are the useful half of this report.** A profile boundary nobody can implement
+        cleanly is a boundary drawn in the wrong place — which is a specification bug, not your bug.
+  - type: input
+    id: what
+    attributes:
+      label: What and where
+      placeholder: "openpredicate-py — https://github.com/…  (Python 3.11+, evaluates in-memory and compiles to SQLAlchemy)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Grammar version implemented
+      placeholder: "v0.4.0"
+    validations:
+      required: true
+  - type: checkboxes
+    id: profiles
+    attributes:
+      label: Profiles implemented in full
+      description: >
+        Per SPEC.md §2.1, `core` is required and every other profile must be implemented in full or
+        not advertised at all. Tick only what is complete — partial support belongs in the next field.
+      options:
+        - label: "`core` — the 15 required operators"
+        - label: "`strings`"
+        - label: "`regex`"
+        - label: "`ranges`"
+        - label: "`types`"
+        - label: "`collections`"
+        - label: "`refs`"
+        - label: "`text`"
+  - type: textarea
+    id: gaps
+    attributes:
+      label: What you left out, and why
+      description: >
+        The most valuable field on this form. Operators you could not implement, semantics that were
+        expensive or impossible on your backend, and anything where you had to guess.
+    validations:
+      required: true
+  - type: textarea
+    id: ambiguities
+    attributes:
+      label: Anything you had to guess at
+      description: >
+        Where the spec did not tell you what to do. These become spec ambiguity issues — please file
+        them separately too if they are substantial, but list them here so none are lost.
+    validations:
+      required: false
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: The two invariants that must hold
+      description: Both exist because a filter that matches *more* than asked is an authorization bypass.
+      options:
+        - label: >
+            An unsupported operator is rejected with `unsupported-operator` and the clause is never
+            silently ignored (§2.1).
+          required: true
+        - label: >
+            An over-limit filter is rejected with `query-too-complex` and never truncated to fit (§7).
+          required: true
+  - type: dropdown
+    id: fixtures
+    attributes:
+      label: Fixtures
+      description: >
+        `tests/fixtures/` is 32 valid and 28 invalid filters. Be aware they check schema
+        well-formedness only — no records, no expected results — and that `expectKeyword` is
+        ajv-flavoured. Turning them into a portable conformance suite is open work, and wanted.
+      options:
+        - Passes all 60 fixtures
+        - Passes the valid fixtures; rejection cases were not portable
+        - Not run yet
+        - I would like to help build a real conformance suite
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Size, dependencies, how long it took. Useful to the next implementer.
+    validations:
+      required: false

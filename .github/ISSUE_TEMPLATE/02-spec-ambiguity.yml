@@ -1,0 +1,57 @@
+name: Spec ambiguity
+description: The specification, the schema and the tests do not agree — or two readers could conform differently.
+title: "Ambiguity: "
+labels: ["spec ambiguity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The specification is written normatively so that **independent implementations can agree**
+        rather than deferring to a reference implementation. An ambiguity is therefore a defect in
+        the thing this project actually ships, and these reports are treated as bugs rather than
+        debated.
+
+        Where two implementations disagree about a case, that disagreement is the report.
+  - type: textarea
+    id: where
+    attributes:
+      label: Where
+      description: Section of SPEC.md, and the part of the schema or the fixtures that bears on it.
+      placeholder: "SPEC.md §4.2 against `$defs/Constraint` in the schema, and tests/fixtures/valid/12-*.json"
+    validations:
+      required: true
+  - type: textarea
+    id: readings
+    attributes:
+      label: The two conforming readings
+      description: >
+        State both. What would implementation A do, what would implementation B do, and why does the
+        normative text permit each?
+    validations:
+      required: true
+  - type: textarea
+    id: filter
+    attributes:
+      label: A filter that distinguishes them
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - The prose is ambiguous
+        - The prose and the schema disagree
+        - The prose and a fixture disagree
+        - An operator description in the schema contradicts the prose
+        - Two implementations already disagree in practice
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Grammar version
+      placeholder: "v0.4.0 (schema $id), release 0.6.0"
+    validations:
+      required: true

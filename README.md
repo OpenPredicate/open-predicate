@@ -31,7 +31,7 @@ One schema, two integration points, because JSON Schema is what both already spe
 - **Stewardship** — the [OpenPredicate](https://openpredicate.tech) organisation — see [About OpenPredicate](#about-openpredicate)
 - **Version** — `0.6.0`. The schema's `$id` still names `v0.4.0`: the `$id` tracks the grammar, and neither 0.5.0 nor 0.6.0 touched it. See [`CHANGELOG.md`](./CHANGELOG.md) for this release, and [`decisions/0001`](./decisions/0001-array-quantifiers-and-unknown-handling.md) for the v0.4.0 migration.
 
-> **Pre-1.0, and installable.** The name is settled — *OpenPredicate*, stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, with the repository, both package names, the schema `$id` and the problem-type URIs all derived from it — and the package is on npm as [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate). Two things are still provisional: the schema is **not yet served** from `openpredicate.tech`, so `$ref` it from a local or packaged copy rather than by URL; and the grammar may still break before 1.0, with each break recorded in [`CHANGELOG.md`](./CHANGELOG.md). See [Status](#status) for what is reachable today.
+> **Pre-1.0, and installable.** The name is settled — *OpenPredicate*, stewarded by the [OpenPredicate](https://openpredicate.tech) organisation, with the repository, both package names, the schema `$id` and the problem-type URIs all derived from it — the package is on npm as [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate), and the schema is **served at its `$id`** — so `$ref` it by URL, or from a packaged copy, whichever suits. One thing is still provisional: the grammar may still break before 1.0, with each break recorded in [`CHANGELOG.md`](./CHANGELOG.md). See [Status](#status) for what is reachable today.
 
 ---
 
@@ -430,8 +430,11 @@ A filter is user input that becomes a query plan. [SPEC.md §7](./SPEC.md#7-safe
 ```
 open-predicate-schema.json     the schema — the only file you need to consume
 SPEC.md                        normative semantics
+CONTRIBUTING.md                how to object, implement, or claim conformance
+GOVERNANCE.md                  how decisions get made, who makes them, and the IPR posture
 RELEASING.md                   how a release is cut, and how trusted publishing is set up
 COMPARISON.md                  how this relates to GraphQL, OData and JSON:API
+decisions/                     one numbered record per significant design decision
 tools/generate-filter-schema.mjs   resource schema + capability selection -> filter schema + capabilities
 examples/mcp-server/           a runnable MCP server; the language as a tool's inputSchema
 examples/                      working OpenAPI 3.1 and 3.2 documents
@@ -441,8 +444,9 @@ tests/generator.test.mjs       the generator: narrowing, soundness, recursion
 tests/fixtures/valid/          one per operator; also the docs' example set
 tests/fixtures/invalid/        every defect this version fixes, pinned
 experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge the design by it
+.github/ISSUE_TEMPLATE/        design objection, spec ambiguity, implementation report
 .github/workflows/ci.yml       tests on Node 20/22/24 + OpenAPI lint
-.github/workflows/release.yml  verifies a GitHub Release; publishes nothing
+.github/workflows/release.yml  publishes to npmjs over OIDC when a GitHub Release is published
 ```
 
 `npm test` meta-validates the schema under ajv's strict mode, checks that `x-profiles` covers exactly the operators the grammar defines, validates every inline example against its own subschema, and runs all fixtures — invalid ones asserting *which* keyword rejected them, so a fixture cannot pass for the wrong reason. It also compiles the generated pet filter schema, asserts that everything it accepts the published grammar accepts too, and checks the committed `examples/pet.filter.json` against a fresh run so it cannot drift. `npm run generate:example` refreshes it.
@@ -453,30 +457,41 @@ experiments/filter-to-sql/     an exercise: compile a filter to SQL, then judge 
 
 **The name is settled.** *OpenPredicate* is the name; [`OpenPredicate/open-predicate`](https://github.com/OpenPredicate/open-predicate) is the home; `openpredicate.tech` is the namespace every identifier derives from — the repository, both package names, the schema `$id`, the problem-type URIs, the CLI name and the vendor keyword alike. [`CHANGELOG.md`](./CHANGELOG.md) lists them in one table.
 
-**Naming is settled; availability is nearly so.** The identifiers below are final, and most are now reachable — the exceptions are called out so nobody has to discover them the hard way:
+**Naming and availability are both settled.** The identifiers below are final and reachable. One exception remains — GitHub Packages — and it is called out so nobody has to discover it the hard way:
 
 | What the README says | Reality today |
 | --- | --- |
-| `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | The permanent namespace, but not served yet. Used throughout [Using it from OpenAPI](#using-it-from-openapi) and in the capability document examples. |
+| `$id` / `$ref` — `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` | **Served**, as `application/schema+json`, with `Access-Control-Allow-Origin: *` and immutable caching, byte-identical to the copy in this repository. `$ref` it directly, as [Using it from OpenAPI](#using-it-from-openapi) and the capability document examples do. |
 | [`@open-predicate/open-predicate`](https://www.npmjs.com/package/@open-predicate/open-predicate) on npmjs.com | **Published**, from `v0.6.0` on. Public, no credential needed to install. |
 | `@openpredicate/open-predicate` on GitHub Packages | Not published yet — the first copy goes up with the next GitHub Release. Installing from it needs an `.npmrc` and a token even though it is public, so npmjs.com is the easier path. |
 | The version line at the top, and the version inside the `$id` | May lag the latest tag. `CHANGELOG.md` is authoritative. |
-| `npx @open-predicate/open-predicate` | Works. The package name rather than the bin name, because `npx` resolves packages and this one is scoped; the installed `bin` is still `open-predicate-generate`. |
+| `npx @open-predicate/open-predicate` | **Broken in `0.6.0` — fixed in the next release.** The `bin` exits 0 without doing anything, because the entry guard compared `process.argv[1]` against `import.meta.url` and npm installs a `bin` as a *symlink*. Until that ships, run it by path: `node node_modules/@open-predicate/open-predicate/tools/generate-filter-schema.mjs --help`. Note that `npx` takes the package name, not the bin name `open-predicate-generate`, which is not a package. |
 
-Serving the schema at its `$id` is the one piece of remaining work. Until it is served, get the schema from the package:
+**The `$id` resolves.** The schema is served from the URL that identifies it, so the workflow the OpenAPI sections describe is a description of today rather than an intended end state:
+
+```bash
+curl -sI https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json
+# content-type: application/schema+json; charset=utf-8
+# access-control-allow-origin: *
+# cache-control: public,max-age=31536000,immutable
+```
+
+Those three headers are the ones that matter: the media type so validators recognise it, the CORS header so browser-based tooling can fetch it, and immutable caching because a versioned `$id` never changes (§9). `$ref` it by URL and you are done.
+
+A local copy is still the right choice for air-gapped builds, for pinning independently of DNS, or for the bundle-and-narrow workflow in [Restricting the queryable field set](#restricting-the-queryable-field-set). Either get it from the package:
 
 ```bash
 npm i @open-predicate/open-predicate
 # -> node_modules/@open-predicate/open-predicate/open-predicate-schema.json
 ```
 
-or, with no package manager in the way:
+or with no package manager in the way — pinning a tag rather than `main`:
 
 ```bash
-curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.0/open-predicate-schema.json
 ```
 
-Either way you end up with a local copy, which is what to `$ref`. Treat the resolvable-`$id` workflow the OpenAPI sections describe as the intended end state rather than a description of today.
+The served copy and the packaged copy are the same bytes: the site vendors the schema out of this repository at a tag, so a release moves both together. See [`RELEASING.md`](./RELEASING.md).
 
 **What is stable enough to review.** The grammar, the operator set and profile grouping, the null and three-valued semantics, and the error model. Those are what the schema, [`SPEC.md`](./SPEC.md) and the test suite pin down, and they are what feedback is most useful on. The grammar may still change before 1.0; each break is recorded in [`CHANGELOG.md`](./CHANGELOG.md) with a migration note.
 
@@ -486,7 +501,11 @@ OpenPredicate is stewarded by the [**OpenPredicate**](https://openpredicate.tech
 
 That goal sets the terms of the work. The grammar is specified normatively in [`SPEC.md`](./SPEC.md) rather than left to a reference implementation, so that independent implementations can agree; every breaking change is recorded with a migration note; and each significant design decision is argued in writing under [`decisions/`](./decisions) rather than settled by commit. Adoption arguments belong in the open too — [`COMPARISON.md`](./COMPARISON.md) is where the case against the nearest alternative is made and its gaps admitted.
 
-The specification and this repository are [MIT](./LICENSE)-licensed, so the grammar can be implemented, vendored, extended and re-specified without permission. Issues and design discussion are welcome at [github.com/OpenPredicate/open-predicate](https://github.com/OpenPredicate/open-predicate/issues).
+[`GOVERNANCE.md`](./GOVERNANCE.md) is where that process is written down: what each class of change costs, how a disputed design call is resolved — including that dissent is recorded in the decision record rather than discarded — what earns commit rights, and the project's royalty-free patent posture. It also states plainly that there is currently one maintainer, and treats that as the defect it is.
+
+The specification and this repository are [MIT](./LICENSE)-licensed, so the grammar can be implemented, vendored, extended and re-specified without permission, commercially or otherwise.
+
+**Disagreement is the most useful contribution at this stage**, and [`CONTRIBUTING.md`](./CONTRIBUTING.md) says how to make it: file a design objection, build an implementation (or help turn the fixtures into a real conformance suite), or claim conformance for a library you already maintain. Open-ended design talk belongs in [Discussions](https://github.com/OpenPredicate/open-predicate/discussions); a defect or an objection belongs in an [issue](https://github.com/OpenPredicate/open-predicate/issues/new/choose).
 
 ## License
 

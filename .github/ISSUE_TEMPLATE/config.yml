@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question, or how do I express this filter?
+    url: https://github.com/OpenPredicate/open-predicate/discussions/categories/q-a
+    about: Ask in Discussions. Try it in the playground first — openpredicate.tech/playground — which validates against the real schema and shows the error a conforming server would return.
+  - name: Design discussion, before it is an objection
+    url: https://github.com/OpenPredicate/open-predicate/discussions/categories/ideas
+    about: For thinking out loud about the grammar. If you already believe something is wrong, file a design objection issue instead — that is the more useful form.
+  - name: Security or denial-of-service report
+    url: https://github.com/OpenPredicate/open-predicate/security/advisories/new
+    about: Report privately. This includes specification defects that make conforming implementations unsafe — see SECURITY.md.

@@ -140,12 +140,28 @@ These cost time to work out.
 
 ## Serving the schema from its `$id`
 
-Serving `https://openpredicate.tech/schema/` is the other half of this and is not wired up. Until it is, the `$id` is an identifier rather than a location — which JSON Schema permits, and which every example in the repository works around by `$ref`-ing the local copy.
-
-Meanwhile the schema can also be vendored directly. It is self-contained and has no runtime dependencies:
+This is wired up. The `$id` is now both an identifier and a location:
 
 ```bash
-curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/main/open-predicate-schema.json
+curl -sI https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json
+# HTTP/2 200 · application/schema+json · access-control-allow-origin: * · immutable
 ```
 
-Pin a tag rather than `main` if you want a stable copy — swap `main` for `v0.6.0` in that URL.
+**Serving it is a second repository's job, so a release is not finished when the tag is pushed.** The site at [`OpenPredicate/openpredicate.tech`](https://github.com/OpenPredicate/openpredicate.tech) vendors the specification artefacts rather than paraphrasing them, and its build never touches the network — so the copy is refreshed by an explicit step:
+
+```bash
+# in the openpredicate.tech checkout
+node sync.mjs v0.6.0     # pulls SPEC.md, CHANGELOG.md, COMPARISON.md, the examples and the schema
+```
+
+`sync.mjs` reads the grammar version out of the schema's own `$id` and writes the file to the directory that `$id` names, so a release that moves the grammar **adds** a directory rather than overwriting a published one. That is what keeps the versioned URLs immutable, as SPEC.md §9 requires. Cache headers are decided at build time and written to `dist/_headers`, because Netlify cannot scope headers per deploy context in `netlify.toml`.
+
+So the order is: tag here → GitHub Release → npm publishes over OIDC → `node sync.mjs <tag>` there → commit and deploy. Skipping the last step leaves the new grammar version unresolvable while the package already references it.
+
+The schema can also be vendored directly. It is self-contained and has no runtime dependencies:
+
+```bash
+curl -O https://raw.githubusercontent.com/OpenPredicate/open-predicate/v0.6.0/open-predicate-schema.json
+```
+
+Pin a tag rather than `main`, as above, if you want a copy that cannot move under you.

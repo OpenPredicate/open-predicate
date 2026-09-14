@@ -27,6 +27,54 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ### Added
 
+- **The project has a written governance and contribution process.**
+  [`GOVERNANCE.md`](./GOVERNANCE.md) states how a decision is made and what it costs — editorial,
+  substantive-compatible, or normative, where normative requires a record under
+  [`decisions/`](./decisions), a migration note and a `$id` bump. It sets out how a disputed design
+  call is resolved (answered in writing, then a decision record quoting the objection in the
+  objector's words, then 14-day lazy consensus, then the editor decides **and the dissent is recorded
+  in the record**), what earns commit rights, and an explicit royalty-free patent posture — MIT
+  settles copyright and says nothing about patents, which is the first thing an adopter's lawyer
+  looks for. It also states that there is currently one maintainer and calls that a defect rather
+  than a design.
+
+  [`CONTRIBUTING.md`](./CONTRIBUTING.md) leads with the thing the README already says is most useful
+  — *disagreement* — and makes the three entry points concrete: file a design objection, build an
+  implementation, or claim conformance for a library that already exists. It is candid that
+  `tests/fixtures/` checks schema well-formedness only, has no records or expected results, uses an
+  ajv-flavoured `expectKeyword`, and is excluded from the published package; and it names promoting
+  `experiments/filter-to-sql/cases.mjs` (73 cases over 10 records, already shaped
+  `{group, id, title, filter, expect}`) into a portable conformance suite as the highest-value
+  contribution currently available.
+
+  Also added: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md), which makes explicit that blunt technical
+  disagreement is welcome and is not incivility, and discloses that a report about the sole
+  maintainer has nowhere independent to go inside the project;
+  [`SECURITY.md`](./SECURITY.md), which defines what a vulnerability even means for a specification
+  — a rule that makes conforming implementations unsafe, a filter that stays inside the §7 limits and
+  is still superlinear, or any path where a predicate ends up dropped, widened or truncated, since
+  that is an authorization bypass wherever filters carry tenancy; [`SUPPORT.md`](./SUPPORT.md); three
+  issue forms; and a pull-request template whose checklist is tied to the invariants the tests
+  already enforce. Discussions and private vulnerability reporting are enabled on the repository.
+
+- **The schema is served from its `$id`.**
+  `https://openpredicate.tech/schema/v0.4.0/open-predicate-schema.json` now returns the file it
+  identifies, as `application/schema+json`, with `Access-Control-Allow-Origin: *` so browser-based
+  tooling can fetch it and `Cache-Control: public,max-age=31536000,immutable` because a versioned
+  `$id` never changes (§9). The served bytes are identical to
+  [`open-predicate-schema.json`](./open-predicate-schema.json) in this repository.
+
+  This closes what the README called the one piece of remaining work. The `$ref`-by-URL workflow
+  that [Using it from OpenAPI](./README.md#using-it-from-openapi) and the capability document
+  examples are written around now describes today rather than an intended end state, and the five
+  RFC 9457 problem types under `https://openpredicate.tech/problems/` dereference as well. There is
+  deliberately **no** unversioned or `latest` schema URL; both 404.
+
+  Serving it is a second repository's job, so a release is not finished when the tag is pushed —
+  [`OpenPredicate/openpredicate.tech`](https://github.com/OpenPredicate/openpredicate.tech) vendors
+  the artefacts and has to be synced at the tag. That step is now written down in
+  [`RELEASING.md`](./RELEASING.md#serving-the-schema-from-its-id).
+
 - **Publishing is back on, and npmjs.com authenticates by OIDC.**
   [`.github/workflows/release.yml`](./.github/workflows/release.yml) publishes to both registries
   when a GitHub Release is published. The npmjs job uses npm's [trusted

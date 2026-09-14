@@ -1,0 +1,70 @@
+name: Design objection
+description: Something in the grammar is wrong. This is the most useful issue you can file.
+title: "Design: "
+labels: ["design objection"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is the contribution the project most wants.** Pre-1.0 with no known adopters, every
+        design defect is still free to fix; after adoption each one is permanent.
+
+        You do not need to propose a replacement, and you do not need to be sure. Three operator
+        overlaps were removed in v0.4.0 because two unsolicited reviews converged on them — see
+        [`decisions/0001`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0001-array-quantifiers-and-unknown-handling.md).
+  - type: textarea
+    id: construct
+    attributes:
+      label: The construct
+      description: Which operator, rule, or section of SPEC.md. Quote it if you can.
+      placeholder: "`$in` (SPEC.md §5.3), and the interaction with `$some` in §5.8."
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: The failure
+      description: >
+        What goes wrong. A filter that cannot be expressed, two ways to write the same thing, a
+        semantic that surprises, or a rule an implementation cannot enforce. A concrete filter and
+        the result you expected beats a description of the problem.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what the spec says instead
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What it should be instead
+      description: >
+        Optional. "This is wrong and I do not know the fix" is a legitimate and useful issue.
+        Note that the bar for adding an operator is high and stated in decisions/0001 — a construct
+        definable in terms of another does not earn a name. Arguing that the definable form is hard
+        to write *correctly* is the argument that moves this.
+    validations:
+      required: false
+  - type: dropdown
+    id: severity
+    attributes:
+      label: If this is not fixed before 1.0
+      options:
+        - It becomes permanent and I would consider it a serious defect
+        - It becomes permanent and I would live with it
+        - I am unsure — raising it while raising it is cheap
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: >
+            This is not a request for projection, ordering, pagination, grouping or joins, which are
+            excluded by design (SPEC.md §1) and will be declined until the filter layer has external
+            implementers.
+          required: true
