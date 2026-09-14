@@ -7,6 +7,24 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ## [Unreleased]
 
+### Fixed
+
+- **The CLI did nothing when invoked as a CLI.** `tools/generate-filter-schema.mjs` guarded its entry
+  point with `fileURLToPath(import.meta.url) === process.argv[1]`, and npm installs a `bin` as a
+  **symlink** — so `argv[1]` was `node_modules/.bin/open-predicate-generate` while `import.meta.url`
+  was the file it pointed at. The comparison was false, `main()` never ran, and the process exited
+  **0 having printed nothing**. Every `npx @open-predicate/open-predicate` and every global install
+  was affected in `0.6.0`, the first release to ship a `bin` at all.
+
+  It went unnoticed because the two ways it is exercised here both avoid the symlink:
+  `npm run generate:example` and the tests call the file by path. The same comparison also failed for
+  a plain path invocation anywhere under a symlinked directory — including `/tmp` on macOS, which is
+  a symlink to `/private/tmp`.
+
+  The guard now compares through `realpathSync` on both sides, and `tests/generator.test.mjs` runs
+  the real generator through a real symlink and requires output, so the regression cannot return. It
+  still must not run on import, and that is asserted in the same test.
+
 ### Changed
 
 - **The npm package is scoped: `@open-predicate/open-predicate`.** 0.6.0 named it `open-predicate`,

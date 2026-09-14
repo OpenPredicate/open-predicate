@@ -67,7 +67,7 @@
  *   "x-open-predicate": { "operators": ["$eq"] }     — exactly these operators
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -1148,6 +1148,24 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// Run only when invoked as a program, not when imported. `process.argv[1]` is
+// compared through realpathSync because npm installs a `bin` as a *symlink* —
+// argv[1] is then `node_modules/.bin/open-predicate-generate` while
+// import.meta.url is the file it points at, so a direct comparison is always
+// false and the CLI exits 0 having done nothing. That is how `npx` invocation
+// silently no-opped while `node tools/generate-filter-schema.mjs` worked.
+function invokedAsProgram() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  const self = fileURLToPath(import.meta.url);
+  if (entry === self) return true;
+  try {
+    return realpathSync(entry) === realpathSync(self);
+  } catch {
+    return false;
+  }
+}
+
+if (invokedAsProgram()) {
   main(process.argv.slice(2));
 }

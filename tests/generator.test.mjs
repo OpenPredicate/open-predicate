@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 import _Ajv2020 from "ajv/dist/2020.js";
@@ -618,4 +619,26 @@ test("--max-depth refuses a value that is not a number", () => {
   // NaN and silently stopped the walk at the first nested object.
   assert.throws(() => resolveOptions({ "max-depth": "deep" }, ["x.json"], repo), /--max-depth must be an integer/);
   assert.equal(resolveOptions({ "max-depth": "0" }, ["x.json"], repo).options.maxDepth, 0);
+});
+
+test("the CLI runs when invoked through a symlink, as npm installs a bin", () => {
+  // npm installs `bin` as a symlink, so argv[1] is node_modules/.bin/<name>
+  // while import.meta.url is the file it points at. The entry guard compared
+  // the two directly, so it was false for every `npx` and every global install:
+  // the CLI exited 0 having printed nothing, while `node tools/…` worked and
+  // hid it. Run the real generator through a symlink and require output.
+  const dir = mkdtempSync(join(tmpdir(), "open-predicate-bin-"));
+  const link = join(dir, "open-predicate-generate");
+  symlinkSync(join(repo, "tools", "generate-filter-schema.mjs"), link);
+
+  const out = execFileSync(process.execPath, [link, "--help"], { encoding: "utf8" });
+  assert.match(out, /derive a per-resource filter schema/);
+
+  // And it still must not run on import, which is what the guard is there for.
+  const quiet = execFileSync(
+    process.execPath,
+    ["--input-type=module", "-e", `await import(${JSON.stringify(pathToFileURL(link).href)});`],
+    { encoding: "utf8" },
+  );
+  assert.equal(quiet, "");
 });
