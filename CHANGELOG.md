@@ -7,6 +7,61 @@ minor release may break compatibility, in which case the break is spelled out be
 
 ## [Unreleased]
 
+### Changed
+
+- **Operands MUST be bound, and duplicate member names MUST be rejected.** Two normative
+  requirements the specification relied on and never stated, argued in
+  [`decisions/0002`](https://github.com/OpenPredicate/open-predicate/blob/main/decisions/0002-compilation-safety-and-duplicate-members.md).
+  Both were surfaced by writing the security considerations for the IANA media type registration,
+  which RFC 6838 §4.6 makes mandatory — the honest answer required stating, in a document that cites
+  `SPEC.md` as the published specification, that the specification did not address them.
+
+  [SPEC.md §7](./SPEC.md#7-safety-limits) now says that operands are caller-supplied and MUST be
+  passed to a backend as bound parameters or through its own escaping facility, and MUST NOT be
+  concatenated into a statement. The premise of this project is that a JSON predicate compiles to a
+  backend query, so this is the requirement that decides whether an implementation is safe — and it
+  appeared nowhere in the normative text. The project's position already existed everywhere else:
+  `SECURITY.md` lists an injection defect in the filter-to-SQL compiler as in scope, and
+  `experiments/filter-to-sql` has bound every operand from the start.
+
+  The same section adds the asymmetric rule for field paths, which usually cannot be bound as
+  parameters: a path MUST be resolved against the exposed field set (§3.5) and anything
+  unrecognised rejected with `unknown-field`, rather than escaped and passed through. Refusing an
+  unknown path is a whitelist; escaping one is a guess about the backend's quoting rules.
+
+  [SPEC.md §2.3](./SPEC.md#23-the-filter-document) is new and settles duplicate member names.
+  RFC 8259 §4 says names SHOULD be unique and leaves the outcome undefined otherwise, which is
+  tolerable for a document and not for a predicate: this design deliberately validates with a JSON
+  Schema and evaluates somewhere else, so two parsers see the filter. Where they resolve
+  `{"$gt": 18, "$gt": 65}` differently, the filter that was approved is not the filter that ran and
+  neither component has malfunctioned. An implementation MUST now reject a duplicate member name
+  with `malformed-query` rather than prefer an occurrence. The subsection also records that the §7
+  limits bound evaluation rather than parsing, so input must be bounded independently — a parser
+  exhausted by depth has failed before any limit applies.
+
+  **Migration.** Nothing changes for a caller except one case that never had a defined meaning: a
+  filter containing a duplicate member name was previously accepted according to whichever reading
+  the implementation's parser happened to take, and is now rejected. For an implementer, both are
+  no-ops if operands are already bound and the JSON parser already rejects duplicates; otherwise the
+  first describes a vulnerability rather than introducing one, and the second needs a check at the
+  read boundary. `JSON.parse` cannot report duplicates, so this binds the parser, not the validator
+  — which is also why no fixture can express it, as the record explains.
+
+  **The grammar is unchanged.** No operator is added, removed or altered, the schema is
+  byte-identical and the `$id` still names `v0.4.0`. Both requirements constrain implementations
+  rather than the grammar, and §9 ties the `$id` to the grammar — the same reasoning that left the
+  `$id` alone through 0.5.0 and 0.6.0.
+
+### Added
+
+- **The injection requirement is checkable.**
+  `experiments/filter-to-sql/compile.test.mjs` drives five hostile operands, each carrying a unique
+  sentinel, through every operator family that takes a string operand, in both dialects. For each it
+  requires one of exactly two outcomes: the operand is refused with a `QueryProblem`, or it is bound
+  — never interpolated, and never silently dropped, since a dropped predicate widens the result set.
+  Refusal counts as the stronger answer: `$like` legitimately rejects a lone `\'` as an invalid
+  escape. Verified by mutation — making the compiler interpolate strings fails all three tests.
+
 ## [0.6.2] — 2026-09-14
 
 **A packaging release, again.** The schema is still byte-identical and the `$id` still names
