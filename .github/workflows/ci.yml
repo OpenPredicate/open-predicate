@@ -26,6 +26,12 @@ jobs:
       - run: npm ci
       - run: npm test
 
+      # The filter-to-SQL compiler is an exercise rather than a deliverable, but
+      # its suite is where the §7 requirement that operands be bound and never
+      # interpolated is actually checked. A test that does not run enforces
+      # nothing, so it runs here.
+      - run: npm run test:experiment
+
   # The 0.6.0 bin shipped as a silent no-op because nothing exercised the packed
   # artifact. Package managers disagree about how they link a bin — npm and yarn
   # symlink, pnpm writes a shim, Berry's PnP has no node_modules at all, and
