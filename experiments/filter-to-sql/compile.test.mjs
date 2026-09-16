@@ -3,10 +3,29 @@ import assert from "node:assert/strict";
 
 import { CASES, expectationFor, bindingsDiverge } from "./cases.mjs";
 import { DOCUMENT_BINDING, HYBRID_BINDING, RECORDS } from "./dataset.mjs";
-import { openDatabase, search } from "./harness.mjs";
 import { compile, parsePath, QueryProblem } from "./compile.mjs";
 
-const db = openDatabase();
+/**
+ * The database is a Node 22.5+ builtin, and this suite runs on every version
+ * package.json claims to support. So the harness is loaded conditionally: where
+ * `node:sqlite` is missing the executed half of the suite reports as skipped
+ * rather than failing, and the compiler-level half — including the §7 binding
+ * rule this suite exists to enforce — still runs everywhere.
+ */
+let harness = null;
+let unavailable = null;
+try {
+  await import("node:sqlite");
+  harness = await import("./harness.mjs");
+} catch (error) {
+  if (error?.code !== "ERR_UNKNOWN_BUILTIN_MODULE") throw error;
+  unavailable = `node:sqlite is unavailable on ${process.version} (needs Node 22.5+)`;
+}
+
+const search = (...args) => harness.search(...args);
+const db = harness?.openDatabase() ?? null;
+// `skip: false` runs the test normally, so one options object covers both cases.
+const executed = { skip: unavailable ?? false };
 const BINDINGS = { hybrid: HYBRID_BINDING, document: DOCUMENT_BINDING };
 
 /**
@@ -15,7 +34,7 @@ const BINDINGS = { hybrid: HYBRID_BINDING, document: DOCUMENT_BINDING };
  */
 for (const testCase of CASES) {
   for (const [name, binding] of Object.entries(BINDINGS)) {
-    test(`${testCase.id} ${name}: ${testCase.title}`, () => {
+    test(`${testCase.id} ${name}: ${testCase.title}`, executed, () => {
       const expected = expectationFor(testCase, name);
       const result = search(db, testCase.filter, binding);
       if (expected.problem) {
@@ -36,7 +55,7 @@ for (const testCase of CASES) {
  * them to differ. Every disagreement is either a compiler bug or a case that
  * declares itself binding-dependent.
  */
-test("the two bindings agree except where the spec allows them not to", () => {
+test("the two bindings agree except where the spec allows them not to", executed, () => {
   const divergent = [];
   for (const testCase of CASES) {
     const results = Object.entries(BINDINGS).map(([name, binding]) => {
@@ -48,7 +67,7 @@ test("the two bindings agree except where the spec allows them not to", () => {
   assert.deepEqual(divergent, CASES.filter(bindingsDiverge).map((c) => c.id));
 });
 
-test("every fixture record is reachable, and no case matches everything by accident", () => {
+test("every fixture record is reachable, and no case matches everything by accident", executed, () => {
   const all = search(db, { id: { $exists: true } }, DOCUMENT_BINDING);
   assert.equal(all.ids.length, RECORDS.length);
 });
@@ -204,7 +223,7 @@ for (const [dialectName, binding] of [
   });
 }
 
-test("a hostile operand matches nothing rather than changing the query (§7)", () => {
+test("a hostile operand matches nothing rather than changing the query (§7)", executed, () => {
   // The end-to-end form of the same claim: executed, against the real dataset.
   for (const { value } of HOSTILE) {
     const result = search(db, { name: { $eq: value } }, HYBRID_BINDING);
