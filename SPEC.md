@@ -100,6 +100,36 @@ Each member of `fields` describes one queryable path:
 
 `operators` tells a client what it may write; `type`, `format` and `values` tell it *what to write*. The grammar cannot carry that second half: field names are constrained through `propertyNames`, but every path shares one `Constraint` definition, so per-field operand domains are not expressible in the schema (§6). A filter naming a real field with a value outside that field's domain is therefore well-formed, and matches nothing — the failure surfaces as an empty result set rather than an error (§8). The capability document is the only place the domain can be stated, which is why `values` is RECOMMENDED wherever the domain is closed.
 
+### 2.3 The filter document
+
+A filter arrives as JSON. Two properties of JSON itself decide what an implementation can safely
+promise about it, and both have to be settled before the filter is validated rather than after.
+
+**Duplicate member names MUST be rejected.** [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) §4
+says names SHOULD be unique and leaves the outcome undefined when they are not: parsers variously
+keep the first, keep the last, or retain both. That is tolerable for a document and not for a
+predicate, because a filter is validated by one component and evaluated by another. Given
+
+```json
+{ "age": { "$gt": 18, "$gt": 65 } }
+```
+
+a validator that keeps the first member approves a filter an evaluator that keeps the last then
+executes, and no layer has malfunctioned. An implementation MUST reject an object containing a
+duplicate member name with `malformed-query` (§8), and MUST NOT resolve the duplication by
+preferring one occurrence.
+
+This cannot be expressed in the schema. JSON Schema constrains a parsed instance, and by then the
+duplication has already collapsed — so the requirement binds the parser, not the validator. An
+implementation whose JSON parser cannot report duplicates needs to detect them while reading the
+document, or replace the parser.
+
+**Validation precedes evaluation, and parsing precedes both.** The limits of §7 bound what an
+implementation will evaluate; they do not bound what it will parse, and a parser exhausted by
+nesting depth has already failed before any of them applies. An implementation MUST therefore bound
+the input independently of the grammar — by request body size at least, which §7 RECOMMENDS
+anyway — and reject anything it cannot parse within those bounds with `malformed-query`.
+
 ## 3. Data model and field paths
 
 ### 3.1 Records
@@ -458,6 +488,19 @@ An implementation MUST reject a filter that exceeds a limit with `query-too-comp
 For `$regex`, a linear-time engine (RE2, Rust `regex`, Go `regexp`) is strongly RECOMMENDED over a backtracking one. Where that is not available, `$regex` SHOULD be left out of the advertised profiles entirely, and clients directed to `$like`, whose worst case is bounded.
 
 Fields backed by unindexed storage are their own denial-of-service surface. An implementation SHOULD restrict expensive operators to indexed fields through its capability document rather than accepting them and timing out.
+
+**Operands are attacker-controlled and MUST NOT be interpolated into a backend query.** A filter
+compiles to a query, and every operand in it came from the caller. An implementation MUST pass
+operands to its backend as bound parameters, or otherwise through the backend's own escaping
+facility; it MUST NOT build a query by concatenating operand values into a statement. This is the
+one safety requirement that no limit in this section mitigates: a bound operand of any length is
+inert, and an interpolated one of any length is not.
+
+Field paths are the harder half, because an identifier usually cannot be bound as a parameter. A
+path is caller-supplied too, so an implementation MUST resolve each path against the field set it
+exposes (§3.5) and reject anything unrecognised with `unknown-field` (§8) — rather than escaping a
+path and passing it through. Refusing an unknown path is a whitelist; escaping one is a guess about
+the backend's quoting rules.
 
 `$some` and `$every` are the expensive operators on most backends: each one is a traversal of an array, and a nested quantifier is a traversal per element. They count toward the nesting-depth and clause limits like any other clause, and — unlike the `[*]` path segment they replaced — a server that cannot afford them can decline the whole `collections` profile (§2.1) instead of having to accept them as part of the path grammar. An implementation SHOULD publish a lower `maxDepth` for filters containing quantifiers if its storage makes them disproportionately costly.
 

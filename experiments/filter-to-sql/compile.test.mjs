@@ -3,10 +3,29 @@ import assert from "node:assert/strict";
 
 import { CASES, expectationFor, bindingsDiverge } from "./cases.mjs";
 import { DOCUMENT_BINDING, HYBRID_BINDING, RECORDS } from "./dataset.mjs";
-import { openDatabase, search } from "./harness.mjs";
 import { compile, parsePath, QueryProblem } from "./compile.mjs";
 
-const db = openDatabase();
+/**
+ * The database is a Node 22.5+ builtin, and this suite runs on every version
+ * package.json claims to support. So the harness is loaded conditionally: where
+ * `node:sqlite` is missing the executed half of the suite reports as skipped
+ * rather than failing, and the compiler-level half — including the §7 binding
+ * rule this suite exists to enforce — still runs everywhere.
+ */
+let harness = null;
+let unavailable = null;
+try {
+  await import("node:sqlite");
+  harness = await import("./harness.mjs");
+} catch (error) {
+  if (error?.code !== "ERR_UNKNOWN_BUILTIN_MODULE") throw error;
+  unavailable = `node:sqlite is unavailable on ${process.version} (needs Node 22.5+)`;
+}
+
+const search = (...args) => harness.search(...args);
+const db = harness?.openDatabase() ?? null;
+// `skip: false` runs the test normally, so one options object covers both cases.
+const executed = { skip: unavailable ?? false };
 const BINDINGS = { hybrid: HYBRID_BINDING, document: DOCUMENT_BINDING };
 
 /**
@@ -15,7 +34,7 @@ const BINDINGS = { hybrid: HYBRID_BINDING, document: DOCUMENT_BINDING };
  */
 for (const testCase of CASES) {
   for (const [name, binding] of Object.entries(BINDINGS)) {
-    test(`${testCase.id} ${name}: ${testCase.title}`, () => {
+    test(`${testCase.id} ${name}: ${testCase.title}`, executed, () => {
       const expected = expectationFor(testCase, name);
       const result = search(db, testCase.filter, binding);
       if (expected.problem) {
@@ -36,7 +55,7 @@ for (const testCase of CASES) {
  * them to differ. Every disagreement is either a compiler bug or a case that
  * declares itself binding-dependent.
  */
-test("the two bindings agree except where the spec allows them not to", () => {
+test("the two bindings agree except where the spec allows them not to", executed, () => {
   const divergent = [];
   for (const testCase of CASES) {
     const results = Object.entries(BINDINGS).map(([name, binding]) => {
@@ -48,7 +67,7 @@ test("the two bindings agree except where the spec allows them not to", () => {
   assert.deepEqual(divergent, CASES.filter(bindingsDiverge).map((c) => c.id));
 });
 
-test("every fixture record is reachable, and no case matches everything by accident", () => {
+test("every fixture record is reachable, and no case matches everything by accident", executed, () => {
   const all = search(db, { id: { $exists: true } }, DOCUMENT_BINDING);
   assert.equal(all.ids.length, RECORDS.length);
 });
@@ -129,4 +148,88 @@ test("both dialects compile the whole corpus", () => {
     }
   }
   assert.deepEqual(failures, []);
+});
+
+/**
+ * SPEC.md §7: operands are caller-supplied and MUST be bound, never
+ * interpolated. This is the one safety requirement no limit in §7 mitigates —
+ * a bound operand of any length is inert, an interpolated one is not — so it is
+ * asserted directly rather than inferred from the result sets above.
+ *
+ * Each operand is a hostile payload with a unique alphabetic sentinel appended.
+ * The sentinel is what the assertions track, for two reasons. It cannot collide
+ * with SQL the compiler legitimately generates — an earlier version of this test
+ * probed for "SELECT 1" and tripped over the compiler's own
+ * `EXISTS (SELECT 1 FROM json_each(...))`. And it contains no LIKE
+ * metacharacter, so it survives the rewriting the pattern operators properly do:
+ * $contains escapes a literal `%` to `\%` so it cannot act as a wildcard, while
+ * $like passes the pattern through because there `%` is a wildcard by design.
+ * Tracking the sentinel tells "escaped" from "dropped" without asserting any one
+ * operator's escaping scheme.
+ */
+const HOSTILE = [
+  ["x' OR 1=1 --", "SENTINELONE"],
+  ['"; DROP TABLE pets; --', "SENTINELTWO"],
+  ["'||(SELECT name FROM pets LIMIT 1)||'", "SENTINELTHREE"],
+  ["\\'; SELECT 1; --", "SENTINELFOUR"],
+  ["%' OR name LIKE '%", "SENTINELFIVE"],
+].map(([payload, sentinel]) => ({ value: payload + sentinel, probe: sentinel }));
+
+for (const [dialectName, binding] of [
+  ["sqlite", HYBRID_BINDING],
+  ["postgres", { ...HYBRID_BINDING, dialect: "postgres" }],
+]) {
+  test(`${dialectName}: hostile operands are bound, never interpolated (§7)`, () => {
+    for (const { value, probe } of HOSTILE) {
+      // One filter per operator family that carries a string operand, so an
+      // operator added later that forgets to bind is caught rather than only
+      // $eq being covered.
+      const filters = [
+        { name: { $eq: value } },
+        { name: { $ne: value } },
+        { name: { $in: [value] } },
+        { name: { $like: value } },
+        { name: { $contains: value } },
+        { name: { $startsWith: value } },
+        { tags: { $some: { $eq: value } } },
+      ];
+
+      for (const filter of filters) {
+        const label = JSON.stringify(filter);
+
+        // Two outcomes are safe and no third is: the operand is refused, or it
+        // is bound. $like legitimately refuses a lone "\\'" as an invalid
+        // escape (§5.5), and refusing is a stronger answer than binding.
+        let compiled;
+        try {
+          compiled = compile(filter, binding);
+        } catch (err) {
+          assert.ok(err instanceof QueryProblem, `expected a QueryProblem for ${label}, got ${err}`);
+          continue;
+        }
+
+        const { sql, params } = compiled;
+        assert.ok(!sql.includes(value), `operand was interpolated into the statement for ${label}:\n  ${sql}`);
+        assert.ok(!sql.includes(probe), `part of the operand reached the statement for ${label}:\n  ${sql}`);
+
+        // It must also have been passed along rather than silently dropped: a
+        // dropped predicate widens the result set, which §2.1 and §7 forbid.
+        assert.ok(
+          params.some((v) => typeof v === "string" && v.includes(probe)),
+          `operand never reached the parameter list for ${label}: ${JSON.stringify(params)}`,
+        );
+      }
+    }
+  });
+}
+
+test("a hostile operand matches nothing rather than changing the query (§7)", executed, () => {
+  // The end-to-end form of the same claim: executed, against the real dataset.
+  for (const { value } of HOSTILE) {
+    const result = search(db, { name: { $eq: value } }, HYBRID_BINDING);
+    assert.ok(!result.problem, `unexpected ${result.problem?.type} for ${value}`);
+    assert.deepEqual(result.ids, [], `an injected operand must select no records: ${value}`);
+  }
+  // And the table is still there, which a successful injection would have settled.
+  assert.deepEqual(search(db, { status: "available" }, HYBRID_BINDING).problem, undefined);
 });
